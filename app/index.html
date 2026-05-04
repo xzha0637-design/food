@@ -223,12 +223,14 @@ nav button svg { display:block; margin:0 auto 2px; width:24px; height:24px; }
   <div id="daily-targets-content"></div>
   <div class="settings-section">
     <div class="section-label">API 与数据</div>
+      <div id="api-key-section">
     <div class="setting-row">
       <label>DashScope API Key</label>
       <input type="password" id="api-key-input" placeholder="sk-...">
       <div class="hint">密钥仅保存在本机浏览器</div>
     </div>
     <button class="btn btn-primary" onclick="saveSettings()" style="margin-top:4px;">保存设置</button>
+      </div>
     <div style="display:flex;gap:8px;margin-top:8px;">
       <button class="btn btn-outline btn-sm" style="flex:1" onclick="exportData()">导出数据</button>
       <button class="btn btn-outline btn-sm" style="flex:1" onclick="document.getElementById('import-input').click()">导入数据</button>
@@ -249,6 +251,7 @@ nav button svg { display:block; margin:0 auto 2px; width:24px; height:24px; }
   </button>
 </nav>
 
+<script src="config.js"></script>
 <script>
 // ========== STATE ==========
 var MEALS_KEY = 'food_scorer_meals';
@@ -667,8 +670,21 @@ function renderDailyTargets() {
 }
 
 // ========== SETTINGS ==========
-function getAPIKey() { var s = localStorage.getItem(SETTINGS_KEY); return s ? JSON.parse(s).apiKey || '' : ''; }
-function loadSettings() { var s = localStorage.getItem(SETTINGS_KEY); if (s) document.getElementById('api-key-input').value = JSON.parse(s).apiKey || ''; }
+function getAPIKey() {
+  if (window.APP_API_KEY) return window.APP_API_KEY;
+  var s = localStorage.getItem(SETTINGS_KEY);
+  return s ? JSON.parse(s).apiKey || '' : '';
+}
+function loadSettings() {
+  var apiSection = document.getElementById('api-key-section');
+  if (window.APP_API_KEY) {
+    if (apiSection) apiSection.style.display = 'none';
+  } else {
+    if (apiSection) apiSection.style.display = 'block';
+    var s = localStorage.getItem(SETTINGS_KEY);
+    if (s) document.getElementById('api-key-input').value = JSON.parse(s).apiKey || '';
+  }
+}
 
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify({ apiKey: document.getElementById('api-key-input').value.trim() }));
