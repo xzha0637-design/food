@@ -191,7 +191,6 @@ nav button svg { display:block; margin:0 auto 2px; width:24px; height:24px; }
   </button>
 </nav>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 // ========== STATE ==========
 const MEALS_KEY = 'food_scorer_meals';
@@ -200,6 +199,20 @@ const SETTINGS_KEY = 'food_scorer_settings';
 let foodDB=[], nutrientsDB=[], currentResult=null, weeklyChart=null, nutrientChart=null;
 const DAILY = { kcal:2250, protein:65, carbs:325, fat:60, fiber:28, sodium:6000 };
 const MEAL = { kcal:750, protein:22, carbs:108, fat:20, fiber:9, sodium:2000 };
+let chartJSPromise = null;
+
+function loadChartJS() {
+  if (chartJSPromise) return chartJSPromise;
+  chartJSPromise = new Promise((resolve, reject) => {
+    if (typeof Chart !== 'undefined') { resolve(Chart); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+    s.onload = () => resolve(window.Chart);
+    s.onerror = () => reject(new Error('Chart.js 加载失败'));
+    document.head.appendChild(s);
+  });
+  return chartJSPromise;
+}
 
 // ========== NAV ==========
 function showPage(name) {
@@ -562,7 +575,7 @@ async function generateReview(){
 }
 
 // ========== RENDER STATS ==========
-function renderStats(){
+async function renderStats(){
   const meals=getMeals(), reviews=getReviews();
   if(meals.length===0){
     document.getElementById('chart-card').style.display='none';
@@ -585,41 +598,88 @@ function renderStats(){
     days.push({label:d.getMonth()+1+'/'+d.getDate(),score:tg>0?Math.round(af.reduce((s,f)=>s+f.score*f.grams,0)/tg):null,foods:af,date:ds});
   }
 
-  const ctx=document.getElementById('weekly-chart');
-  if(weeklyChart)weeklyChart.destroy();
-  weeklyChart=new Chart(ctx,{type:'bar',data:{
-    labels:days.map(d=>d.label),
-    datasets:[{label:'每日评分',data:days.map(d=>d.score),
-      backgroundColor:days.map(d=>{const s=d.score; return s==null?'#E0E0E0':s>=70?'#43A047':s>=31?'#FB8C00':'#E53935';}),
-      borderRadius:8,borderSkipped:false}]
-  },options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{display:false}},
-    scales:{y:{min:0,max:100,ticks:{stepSize:20,font:{size:11}},grid:{color:'#F0F0F0'}},x:{grid:{display:false}}}
-  }});
+  try { await loadChartJS(); } catch(e) { return; }
 
-  // nutrient comparison
-  const wf=days.filter(d=>d.score!=null).flatMap(d=>d.foods);
-  const dc=days.filter(d=>d.score!=null).length;
-  if(wf.length>0&&dc>0){
-    let wt={kcal:0,protein:0,carbs:0,fat:0,fiber:0,sodium:0}, hd=false;
-    for(const f of wf){ if(f.nutrients){ hd=true; const x=f.grams/100; for(const k of Object.keys(wt)){ if(f.nutrients[k]!=null)wt[k]+=f.nutrients[k]*x; } } }
-    if(hd){
-      document.getElementById('nutrient-card').style.display='block';
-      const da={}; for(const k of Object.keys(wt))da[k]=Math.round(wt[k]/dc);
-      const nc=document.getElementById('nutrient-chart');
-      if(nutrientChart)nutrientChart.destroy();
-      nutrientChart=new Chart(nc,{type:'bar',data:{
-        labels:['热量\n(kcal)','蛋白质\n(g)','碳水\n(g)','脂肪\n(g)','纤维\n(g)','钠\n(mg)'],
-        datasets:[
-          {label:'日均摄入',data:[da.kcal,da.protein,da.carbs,da.fat,da.fiber,da.sodium],backgroundColor:'#43A047',borderRadius:6},
-          {label:'推荐值',data:[DAILY.kcal,DAILY.protein,DAILY.carbs,DAILY.fat,DAILY.fiber,DAILY.sodium],backgroundColor:'#90CAF9',borderRadius:6}
-        ]
-      },options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10},padding:12}}},
-        scales:{y:{beginAtZero:true,grid:{color:'#F5F5F5'}},x:{grid:{display:false}}}
+  var ctx = document.getElementById('weekly-chart');
+  if (weeklyChart) { weeklyChart.destroy(); }
+  var bgColors = days.map(function(d) {
+    var s = d.score;
+    if (s === null) { return '#E0E0E0'; }
+    if (s >= 70) { return '#43A047'; }
+    if (s >= 31) { return '#FB8C00'; }
+    return '#E53935';
+  });
+  weeklyChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: days.map(function(d) { return d.label; }),
+      datasets: [{
+        label: '每日评分',
+        data: days.map(function(d) { return d.score; }),
+        backgroundColor: bgColors,
+        borderRadius: 8,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min: 0, max: 100, ticks: { stepSize: 20, font: { size: 11 } }, grid: { color: '#F0F0F0' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  var wf2 = days.filter(function(d) { return d.score !== null; }).flatMap(function(d) { return d.foods; });
+  var dc2 = days.filter(function(d) { return d.score !== null; }).length;
+  if (wf2.length > 0 && dc2 > 0) {
+    var wt = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sodium: 0 };
+    var hd = false;
+    for (var fi = 0; fi < wf2.length; fi++) {
+      var f = wf2[fi];
+      if (f.nutrients) {
+        hd = true;
+        var factor = f.grams / 100;
+        var keys = Object.keys(wt);
+        for (var ki = 0; ki < keys.length; ki++) {
+          var k = keys[ki];
+          if (f.nutrients[k] != null) { wt[k] += f.nutrients[k] * factor; }
+        }
+      }
+    }
+    if (hd) {
+      document.getElementById('nutrient-card').style.display = 'block';
+      var da = {};
+      var keys2 = Object.keys(wt);
+      for (var ki2 = 0; ki2 < keys2.length; ki2++) {
+        da[keys2[ki2]] = Math.round(wt[keys2[ki2]] / dc2);
+      }
+      var nc = document.getElementById('nutrient-chart');
+      if (nutrientChart) { nutrientChart.destroy(); }
+      nutrientChart = new Chart(nc, {
+        type: 'bar',
+        data: {
+          labels: ['热量\n(kcal)', '蛋白质\n(g)', '碳水\n(g)', '脂肪\n(g)', '纤维\n(g)', '钠\n(mg)'],
+          datasets: [
+            { label: '日均摄入', data: [da.kcal, da.protein, da.carbs, da.fat, da.fiber, da.sodium], backgroundColor: '#43A047', borderRadius: 6 },
+            { label: '推荐值', data: [DAILY.kcal, DAILY.protein, DAILY.carbs, DAILY.fat, DAILY.fiber, DAILY.sodium], backgroundColor: '#90CAF9', borderRadius: 6 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 }, padding: 12 } } },
+          scales: { y: { beginAtZero: true, grid: { color: '#F5F5F5' } }, x: { grid: { display: false } } }
+        }
       });
-    } else document.getElementById('nutrient-card').style.display='none';
-  } else document.getElementById('nutrient-card').style.display='none';
+    } else {
+      document.getElementById('nutrient-card').style.display = 'none';
+    }
+  } else {
+    document.getElementById('nutrient-card').style.display = 'none';
+  }
 
   // review history
   const rh=document.getElementById('review-history');
