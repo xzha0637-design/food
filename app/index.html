@@ -280,7 +280,8 @@ function showPage(name) {
   document.getElementById('page-'+name).classList.add('active');
   document.querySelectorAll('nav button').forEach(function(b){b.classList.remove('active');});
   var navId = name === 'profile' ? 'nav-profile' : 'nav-'+name;
-  document.getElementById(navId).classList.add('active');
+  var navEl = document.getElementById(navId);
+  if (navEl) navEl.classList.add('active');
   if (name==='home') renderHome();
   if (name==='stats') renderStats();
   if (name==='profile') renderProfile();
