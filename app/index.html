@@ -84,7 +84,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Mi
 
 /* Result Page */
 .result-hero { text-align:center; padding:8px 0 16px; }
-.result-food-item { background:var(--card); border-radius:var(--radius); padding:14px; margin:8px 0; display:flex; align-items:center; gap:12px; box-shadow:var(--shadow); }
+.result-food-item { background:var(--card); border-radius:var(--radius); padding:14px; margin:8px 0; display:flex; align-items:center; gap:12px; box-shadow:var(--shadow); position:relative; }
 .result-food-item .food-emoji { font-size:28px; min-width:36px; text-align:center; }
 .result-food-item .info { flex:1; min-width:0; }
 .result-food-item .name { font-weight:600; font-size:14px; }
@@ -200,8 +200,8 @@ nav button svg { display:block; margin:0 auto 2px; width:24px; height:24px; }
   <div class="result-hero"><div class="score-ring" id="result-ring"></div></div>
   <div id="result-foods"></div>
   <div class="balance-grid" id="result-balance" style="display:none"></div>
-  <button class="btn btn-primary" onclick="saveMeal()">确认保存</button>
-  <button class="btn btn-outline" onclick="showPage('home')">取消</button>
+  <button class="btn btn-primary" id="save-meal-btn" onclick="saveMeal()">确认保存</button>
+  <button class="btn btn-outline" id="cancel-meal-btn" onclick="cancelMealEdit()">取消</button>
 </div>
 
 <!-- STATS -->
@@ -1219,6 +1219,16 @@ function calcNutrientCompliance(totals, targets, hasData) {
   return { score: Math.max(0, Math.min(100, score)), details: details };
 }
 
+
+// ========== SATIETY FACTOR ==========
+// Penalize food score when total calorie intake is far below target
+function calcSatietyFactor(kcal, targetKcal) {
+  if (targetKcal <= 0) return 1;
+  var ratio = kcal / targetKcal;
+  // No penalty at 60%+ of target. Below that, linearly reduce.
+  return Math.min(1, ratio / 0.6);
+}
+
 // ========== RENDER HOME ==========
 function renderHome() {
   var meals = getMeals();
@@ -1277,12 +1287,15 @@ function renderHome() {
   // If no nutrient data, don't penalize — just use food score
   var targets = getDailyTargets();
   var compliance = calcNutrientCompliance(nt, targets, hasNut);
+  // Satiety factor: when kcal far below target, reduce food score
+  var satietyFactor = hasNut ? calcSatietyFactor(nt.kcal, targets.targetKcal) : 1;
+  var adjustedFoodScore = foodScore !== null ? Math.round(foodScore * satietyFactor) : null;
   var dailyScore = null;
   if (foodScore !== null && hasNut) {
-    dailyScore = Math.round(foodScore * 0.5 + compliance.score * 0.5);
+    dailyScore = Math.round(adjustedFoodScore * 0.5 + compliance.score * 0.5);
   } else if (foodScore !== null) {
-    dailyScore = foodScore; // no nutrient data yet, use pure food score
-    compliance.score = foodScore; // show same value to avoid confusion
+    dailyScore = foodScore;
+    compliance.score = foodScore;
   } else if (hasNut) {
     dailyScore = compliance.score;
   }
@@ -1384,7 +1397,7 @@ function renderHome() {
           gIdx = gi; break;
         }
       }
-      return '<div class="card"><div class="card-header"><span class="title">' + (m.type || '正餐') + ' ' + m.time + '</span><div style="display:flex;align-items:center;gap:8px;"><span class="score-badge ' + bcls + '">' + ms + '分</span><button class="btn btn-sm" style="padding:2px 8px;font-size:11px;color:#B0BEC5;background:none;border:1px solid #E0E0E0;border-radius:6px;" onclick="deleteMeal(' + gIdx + ')">✕</button></div></div><div class="food-tags">' + tags + '</div></div>';
+      return '<div class="card"><div class="card-header"><span class="title">' + (m.type || '正餐') + ' ' + m.time + '</span><div style="display:flex;align-items:center;gap:8px;"><span class="score-badge ' + bcls + '">' + ms + '分</span><button class="btn btn-sm" style="padding:2px 8px;font-size:11px;color:#B0BEC5;background:none;border:1px solid #E0E0E0;border-radius:6px;" onclick="deleteMeal(' + gIdx + ')">✕</button><button class="btn btn-sm" style="padding:2px 8px;font-size:11px;color:#607D8B;background:none;border:1px solid #E0E0E0;border-radius:6px;" onclick="editMeal(' + gIdx + ')">✎</button></div></div><div class="food-tags">' + tags + '</div></div>';
     }).join('');
   }
 
@@ -1428,17 +1441,95 @@ function deleteMeal(idx) {
   renderHome();
 }
 
+
+// ========== EDIT MEAL ==========
+function editMeal(idx) {
+  var meals = getMeals();
+  var m = meals[idx];
+  if (!m) return;
+  editingMealIndex = idx;
+  currentResult = {
+    foods: m.foods.map(function(f) { return {name: f.name, score: f.score, grams: f.grams, nutrients: f.nutrients, level: f.level, dbMatch: true}; }),
+    mealScore: m.mealScore, qualityScore: m.qualityScore, balanceScore: m.balanceScore, balanceDetails: null
+  };
+  renderResult();
+  document.getElementById('save-meal-btn').textContent = '保存修改';
+  showPage('result');
+}
+
+function cancelMealEdit() {
+  editingMealIndex = -1;
+  currentResult = null;
+  showPage('home');
+}
+
+function saveMealEdit() {
+  if (!currentResult || editingMealIndex < 0) return;
+  var meals = getMeals();
+  if (editingMealIndex >= meals.length) return;
+  var foods = currentResult.foods;
+  var tg = foods.reduce(function(s, f) { return s + f.grams; }, 0);
+  var qs = tg > 0 ? Math.round(foods.reduce(function(s, f) { return s + f.score * f.grams; }, 0) / tg) : 0;
+  var bal = calcBalance(foods, tg);
+  meals[editingMealIndex].foods = foods.map(function(f) {
+    return { name: f.name, score: f.score, grams: f.grams, nutrients: f.nutrients, level: f.level };
+  });
+  meals[editingMealIndex].mealScore = Math.round(qs * .7 + bal.balanceScore * .3);
+  meals[editingMealIndex].qualityScore = qs;
+  meals[editingMealIndex].balanceScore = bal.balanceScore;
+  saveMeals(meals);
+  showToast('已保存修改 ✓');
+  editingMealIndex = -1;
+  currentResult = null;
+  showPage('home');
+}
+
+function removeFoodFromEdit(i) {
+  if (!currentResult || editingMealIndex < 0) return;
+  currentResult.foods.splice(i, 1);
+  if (currentResult.foods.length === 0) {
+    var meals = getMeals();
+    meals.splice(editingMealIndex, 1);
+    saveMeals(meals);
+    showToast('已删除（无剩余食物）');
+    editingMealIndex = -1;
+    currentResult = null;
+    showPage('home');
+    return;
+  }
+  var foods = currentResult.foods;
+  var tg = foods.reduce(function(s, f) { return s + f.grams; }, 0);
+  var qs = Math.round(foods.reduce(function(s, f) { return s + f.score * f.grams; }, 0) / tg);
+  var bal = calcBalance(foods, tg);
+  currentResult.qualityScore = qs;
+  currentResult.balanceScore = bal.balanceScore;
+  currentResult.balanceDetails = bal.details;
+  currentResult.mealScore = Math.round(qs * .7 + bal.balanceScore * .3);
+  renderResult();
+}
+
 // ========== RENDER RESULT ==========
 function renderResult() {
   if (!currentResult) return;
   var r = currentResult;
+  // Update buttons for edit vs new mode
+  var saveBtn = document.getElementById('save-meal-btn');
+  var cancelBtn = document.getElementById('cancel-meal-btn');
+  if (saveBtn) {
+    saveBtn.textContent = editingMealIndex >= 0 ? '保存修改' : '确认保存';
+    saveBtn.onclick = editingMealIndex >= 0 ? saveMealEdit : saveMeal;
+  }
+  if (cancelBtn) {
+    cancelBtn.textContent = editingMealIndex >= 0 ? '取消' : '取消';
+    cancelBtn.onclick = cancelMealEdit;
+  }
   var pct = r.mealScore;
   var color = pct >= 70 ? 'var(--green)' : pct >= 31 ? 'var(--amber)' : 'var(--red)';
   var circ = 2 * Math.PI * 48;
   document.getElementById('result-ring').innerHTML = '<svg width="120" height="120" viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="48"/><circle class="fill" cx="60" cy="60" r="48" stroke="' + color + '" stroke-dasharray="' + circ + '" stroke-dashoffset="' + (circ * (1 - pct / 100)) + '"/></svg><div class="val"><span class="n">' + r.mealScore + '</span><span class="l">这顿饭</span></div>';
 
   document.getElementById('result-foods').innerHTML = r.foods.map(function(f, i) {
-    return '<div class="result-food-item"><div class="food-emoji">' + foodEmoji(f.name) + '</div><div class="info"><div class="name">' + f.name + (f.dbMatch ? '' : ' · AI估算') + '</div><div class="meta"><input type="number" value="' + f.grams + '" min="1" max="5000" onchange="updateGrams(' + i + ',this.value)"> g · ' + f.level + '</div></div><div class="score-num" style="color:' + (f.score >= 70 ? 'var(--green)' : f.score >= 31 ? 'var(--amber)' : 'var(--red)') + '">' + f.score + '</div></div>';
+    return '<div class="result-food-item"><div class="food-emoji" style="position:relative;">' + foodEmoji(f.name) + '</div><div class="info"><div class="name">' + f.name + (f.dbMatch ? '' : ' · AI估算') + '</div><div class="meta"><input type="number" value="' + f.grams + '" min="1" max="5000" onchange="updateGrams(' + i + ',this.value)"> g · ' + f.level + '</div></div><div class="score-num" style="color:' + (f.score >= 70 ? 'var(--green)' : f.score >= 31 ? 'var(--amber)' : 'var(--red)') + '">' + f.score + '</div>' + (editingMealIndex >= 0 ? '<button style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:11px;border:none;background:#EF5350;color:#fff;font-size:12px;line-height:22px;text-align:center;cursor:pointer;" onclick="event.stopPropagation();removeFoodFromEdit(' + i + ')">✕</button>' : '') + '</div></div>';
   }).join('');
 
   var bal = document.getElementById('result-balance');
@@ -1542,9 +1633,11 @@ async function generateReview() {
 
     // Blended score same as home page
     var compliance = calcNutrientCompliance(nt, targets, hasNut);
+    var satietyF = hasNut ? calcSatietyFactor(nt.kcal, targets.targetKcal) : 1;
+    var adjFoodScore = Math.round(foodScore * satietyF);
     var dailyScore;
     if (hasNut) {
-      dailyScore = Math.round(foodScore * 0.5 + compliance.score * 0.5);
+      dailyScore = Math.round(adjFoodScore * 0.5 + compliance.score * 0.5);
     } else {
       dailyScore = foodScore;
       compliance.score = foodScore;
