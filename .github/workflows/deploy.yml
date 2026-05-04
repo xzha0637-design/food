@@ -22,8 +22,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject API Key
-        run: echo "window.APP_API_KEY='${{ secrets.DASHSCOPE_API_KEY }}';" > app/config.js
+      - name: Inject API Keys
+        run: |
+          echo "window.APP_API_KEY='${{ secrets.DASHSCOPE_API_KEY }}';" > app/config.js
+          echo "window.DEEPSEEK_API_KEY='${{ secrets.DEEPSEEK_API }}';" >> app/config.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

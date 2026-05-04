@@ -229,6 +229,12 @@ nav button svg { display:block; margin:0 auto 2px; width:24px; height:24px; }
       <input type="password" id="api-key-input" placeholder="sk-...">
       <div class="hint">密钥仅保存在本机浏览器</div>
     </div>
+    
+    </div>
+    <div class="setting-row">
+      <label>DeepSeek API Key（文本分析）</label>
+      <input type="password" id="deepseek-key-input" placeholder="sk-...">
+      <div class="hint">用于生成总评、营养素匹配，密钥仅保存在本机</div>
     <button class="btn btn-primary" onclick="saveSettings()" style="margin-top:4px;">保存设置</button>
       </div>
     <div style="display:flex;gap:8px;margin-top:8px;">
@@ -676,19 +682,30 @@ function getAPIKey() {
   var s = localStorage.getItem(SETTINGS_KEY);
   return s ? JSON.parse(s).apiKey || '' : '';
 }
+function getDeepSeekKey() {
+  if (window.DEEPSEEK_API_KEY) return window.DEEPSEEK_API_KEY;
+  var s = localStorage.getItem(SETTINGS_KEY);
+  return s ? JSON.parse(s).deepseekKey || '' : '';
+}
 function loadSettings() {
   var apiSection = document.getElementById('api-key-section');
-  if (window.APP_API_KEY) {
+  if (window.APP_API_KEY && window.DEEPSEEK_API_KEY) {
     if (apiSection) apiSection.style.display = 'none';
   } else {
     if (apiSection) apiSection.style.display = 'block';
     var s = localStorage.getItem(SETTINGS_KEY);
-    if (s) document.getElementById('api-key-input').value = JSON.parse(s).apiKey || '';
+    if (s) {
+      document.getElementById('api-key-input').value = JSON.parse(s).apiKey || '';
+      document.getElementById('deepseek-key-input').value = JSON.parse(s).deepseekKey || '';
+    }
   }
 }
 
 function saveSettings() {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ apiKey: document.getElementById('api-key-input').value.trim() }));
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+    apiKey: document.getElementById('api-key-input').value.trim(),
+    deepseekKey: document.getElementById('deepseek-key-input').value.trim()
+  }));
   showToast('已保存');
 }
 
@@ -1075,19 +1092,15 @@ async function callVisionAPI(key, dataUri) {
   return JSON.parse(m[0]);
 }
 
-// ========== TEXT API (for daily review & food enrichment) ==========
-// Uses same model & endpoint as vision API; content as array to match VL model format
+// ========== TEXT API (DeepSeek for review & enrichment) ==========
 async function callTextAPI(key, messages) {
-  var body = JSON.stringify({
-    model: 'qwen3-vl-flash', max_tokens: 1024,
-    messages: messages.map(function(m) {
-      return { role: m.role, content: [{ type: 'text', text: typeof m.content === 'string' ? m.content : m.content[0].text }] };
-    })
-  });
-  var resp = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
+  // Use DeepSeek for all text generation (key param kept for backward compat, ignored)
+  var dk = getDeepSeekKey();
+  if (!dk) throw new Error('DeepSeek API Key 未配置');
+  var resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
-    body: body
+    headers: { 'Authorization': 'Bearer ' + dk, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'deepseek-v4-flash', max_tokens: 1024, messages: messages })
   });
   if (!resp.ok) {
     var eResp = await resp.json().catch(function() { return {}; });
