@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>综合加权食物评分系统 — 基于8大体系的加权合成模型</title>
+<style>
+  :root {
+    --green: #2d8a56; --green-bg: #e8f5e9; --green-bar: #4caf50;
+    --yellow: #e67e00; --yellow-bg: #fff8e1; --yellow-bar: #ff9800;
+    --red: #c0392b; --red-bg: #ffebee; --red-bar: #e74c3c;
+    --blue: #1a5276; --blue-bg: #e3f2fd;
+    --purple: #6c3483; --purple-bg: #f3e5f5;
+    --bg: #f8f9fa; --card: #ffffff; --text: #2c3e50;
+    --text-secondary: #5a6c7d; --border: #e0e4e8;
+    --shadow: 0 2px 8px rgba(0,0,0,0.06); --shadow-lg: 0 8px 30px rgba(0,0,0,0.1);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7; font-size: 15px;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1a3a2a 0%, #1a5276 50%, #1a3a2a 100%);
+    color: #fff; padding: 50px 20px; text-align: center;
+  }
+  .hero h1 { font-size: 2.2em; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+  .hero .subtitle { font-size: 1.1em; opacity: 0.85; }
+  .hero .meta { font-size: 0.9em; opacity: 0.65; margin-top: 8px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+  .legend { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: -30px auto 30px; max-width: 700px; position: relative; z-index: 2; }
+  .legend-item { flex: 1; min-width: 140px; padding: 16px 20px; border-radius: 12px; background: var(--card); box-shadow: var(--shadow-lg); text-align: center; }
+  .legend-item .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .legend-item .label { font-weight: 700; font-size: 0.95em; }
+  .legend-item .range { font-size: 0.85em; color: var(--text-secondary); margin-top: 2px; }
+
+  section { margin: 36px 0; }
+  .section-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--border); }
+  .section-header h2 { font-size: 1.5em; font-weight: 700; }
+  .section-header .avg { font-size: 0.9em; color: var(--text-secondary); }
+
+  .subsection { margin: 24px 0; }
+  .subsection h3 { font-size: 1.15em; margin-bottom: 10px; padding: 8px 14px; border-radius: 8px; display: flex; align-items: center; gap: 8px; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 10px; }
+  thead { background: #f1f3f5; }
+  th { padding: 10px 14px; text-align: left; font-weight: 700; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
+  td { padding: 10px 14px; border-top: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: #fafbfc; }
+  .note-row td { background: #fdfcf0; font-size: 0.88em; color: var(--text-secondary); border-top: 2px solid #e0dcc0; padding: 10px 14px; line-height: 1.5; }
+
+  .score { display: inline-block; min-width: 42px; padding: 3px 10px; border-radius: 20px; font-weight: 800; font-size: 0.92em; text-align: center; letter-spacing: -0.3px; }
+  .score.high { background: var(--green-bg); color: var(--green); }
+  .score.mid  { background: var(--yellow-bg); color: var(--yellow); }
+  .score.low  { background: var(--red-bg); color: var(--red); }
+
+  .bar-wrap { display: flex; align-items: center; gap: 10px; }
+  .bar { flex: 1; height: 8px; border-radius: 4px; background: #eee; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+  .bar-fill.green  { background: var(--green-bar); }
+  .bar-fill.yellow { background: var(--yellow-bar); }
+  .bar-fill.red    { background: var(--red-bar); }
+  .bar-fill.blue   { background: #2980b9; }
+  .bar-val { font-weight: 700; font-size: 0.9em; min-width: 36px; text-align: right; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin: 20px 0; }
+  .summary-card { background: var(--card); border-radius: 12px; padding: 18px 20px; box-shadow: var(--shadow); border-left: 4px solid #ccc; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .summary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .summary-card .cat-name { font-weight: 700; font-size: 1.05em; margin-bottom: 4px; }
+  .summary-card .cat-score { font-size: 2em; font-weight: 800; }
+  .summary-card .cat-note { font-size: 0.82em; color: var(--text-secondary); margin-top: 4px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  .info-box { background: var(--blue-bg); border-left: 4px solid var(--blue); padding: 16px 20px; border-radius: 8px; margin: 16px 0; }
+  .info-box h4 { margin-bottom: 6px; color: var(--blue); font-size: 0.95em; }
+
+  .formula-box { background: linear-gradient(135deg, #f5f0ff 0%, #fdf2f8 100%); border: 1px solid #d4c4e8; border-radius: 10px; padding: 20px 24px; margin: 16px 0; }
+  .formula-box code { background: #2c3e50; color: #e8f5e9; padding: 3px 8px; border-radius: 5px; font-size: 0.9em; }
+  .formula-box .big-formula { font-size: 1.15em; text-align: center; padding: 14px 0; font-weight: 700; color: #1a3a2a; }
+
+  .footnote-box { background: #fdf8ee; border: 1px solid #e8dbb8; border-radius: 8px; padding: 14px 18px; margin: 16px 0; font-size: 0.88em; }
+
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.78em; font-weight: 600; margin-left: 6px; }
+  .tag.green  { background: var(--green-bg); color: var(--green); }
+  .tag.yellow { background: var(--yellow-bg); color: var(--yellow); }
+  .tag.red    { background: var(--red-bg); color: var(--red); }
+  .tag.blue   { background: var(--blue-bg); color: var(--blue); }
+  .tag.purple { background: var(--purple-bg); color: var(--purple); }
+
+  .toc { margin: 20px 0; }
+  .toc summary { font-weight: 700; font-size: 1.1em; cursor: pointer; padding: 8px 0; user-select: none; }
+  .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; margin-top: 10px; }
+  .toc-grid a { color: var(--blue); text-decoration: none; font-size: 0.9em; padding: 4px 8px; border-radius: 6px; }
+  .toc-grid a:hover { background: var(--blue-bg); }
+
+  .warn-icon { color: #e67e22; font-weight: 700; }
+
+  footer { text-align: center; padding: 30px 20px; color: var(--text-secondary); font-size: 0.82em; border-top: 1px solid var(--border); margin-top: 40px; }
+
+  .rank-table-wrap { max-height: 600px; overflow-y: auto; border-radius: 10px; box-shadow: var(--shadow); }
+  .rank-table-wrap table { margin-bottom: 0; }
+  .rank-table-wrap thead { position: sticky; top: 0; z-index: 3; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>综合加权食物评分系统</h1>
+  <div class="subtitle">Integrated Weighted Food Scoring System — 基于8大营养评分体系的加权合成</div>
+  <div class="meta">编制日期：2026-05-01 &nbsp;|&nbsp; 纳入2016-2024年发表的8个食物评分系统 &nbsp;|&nbsp; 128种食物分类评分<br>权重因子：期刊IF(20%) + 中国膳食相关性(35%) + 发表年份(25%) + 学术引用(20%)</div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════ Score Legend ═══════════════ -->
+<div class="legend">
+  <div class="legend-item">
+    <span class="dot" style="background:var(--green)"></span>
+    <span class="label">鼓励食用</span>
+    <div class="range">加权分 ≥ 70 · 约 40% 食物</div>
+  </div>
+  <div class="legend-item">
+    <span class="dot" style="background:var(--yellow)"></span>
+    <span class="label">适量食用</span>
+    <div class="range">加权分 31–69 · 约 35% 食物</div>
+  </div>
+  <div class="legend-item">
+    <span class="dot" style="background:var(--red)"></span>
+    <span class="label">尽量少吃</span>
+    <div class="range">加权分 ≤ 30 · 约 25% 食物</div>
+  </div>
+</div>
+
+<!-- ═══════════════ TOC ═══════════════ -->
+<details class="toc">
+  <summary>目录（点击展开/收起）</summary>
+  <div class="toc-grid">
+    <a href="#s0">加权公式详解</a> <a href="#s0b">系统权重对比</a>
+    <a href="#s1">浆果</a> <a href="#s2">柑橘</a> <a href="#s3">一般水果</a>
+    <a href="#s4">水果干</a> <a href="#s5">绿叶蔬菜</a> <a href="#s6">十字花科</a>
+    <a href="#s7">红橙蔬菜</a> <a href="#s8">淀粉蔬菜</a> <a href="#s9">豆类</a>
+    <a href="#s10">坚果种子</a> <a href="#s11">全谷物</a> <a href="#s12">精制谷物</a>
+    <a href="#s13">鱼类海鲜</a> <a href="#s14">贝类</a> <a href="#s15">禽肉</a>
+    <a href="#s16">红肉</a> <a href="#s17">加工肉</a> <a href="#s18">蛋类</a>
+    <a href="#s19">牛奶</a> <a href="#s20">酸奶</a> <a href="#s21">奶酪</a>
+    <a href="#s22">植物油</a> <a href="#s23">动物脂肪</a> <a href="#s24">饮料</a>
+    <a href="#s25">植物基替代</a> <a href="#s26">零食甜点</a> <a href="#s27">酱汁调味</a>
+    <a href="#s28">麦片</a> <a href="#s29">腌制蔬菜</a> <a href="#s30">中式菜品</a>
+    <a href="#s99">完整排名</a> <a href="#s100">局限性</a>
+  </div>
+</details>
+
+<!-- ═══════════════ 加权公式 ═══════════════ -->
+<section id="s0">
+  <div class="section-header"><h2>加权计算公式与权重推导</h2></div>
+
+  <div class="formula-box">
+    <h4>基础加权公式</h4>
+    <div class="big-formula">
+      系统权重 = IF<sub>score</sub> × 0.20 + CN<sub>score</sub> × 0.35 + Year<sub>score</sub> × 0.25 + Cite<sub>score</sub> × 0.20
+    </div>
+    <table style="margin-top:12px">
+      <thead><tr><th>因子</th><th>权重</th><th>说明</th><th>评分范围</th></tr></thead>
+      <tbody>
+        <tr><td><strong>IF<sub>score</sub></strong> · 期刊影响因子</td><td><strong>20%</strong></td><td>JCR 2024 IF 线性映射到 0-10</td><td>Nature Food 20→10, J.Nutr 4.5→2.3, medRxiv 0→0</td></tr>
+        <tr><td><strong>CN<sub>score</sub></strong> · 中国膳食相关性</td><td><strong style="color:#c0392b">35%</strong></td><td>对中国人群饮食结构的适用性和验证程度</td><td>CHEI=10(专门设计), GDQS=6(含中国验证), FC2=2(仅美国)</td></tr>
+        <tr><td><strong>Year<sub>score</sub></strong> · 发表年份</td><td><strong>25%</strong></td><td>2016=1.0 至 2026=10.0 线性衰减（10年界）</td><td>2024→9.0, 2021→6.0, 2016→1.0</td></tr>
+        <tr><td><strong>Cite<sub>score</sub></strong> · 学术引用量</td><td><strong>20%</strong></td><td>Google Scholar/Scopus 引用数估算映射 0-10</td><td>NOVA引5000+→10, NCS预印本→1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="info-box">
+    <h4>标准化与加权合成方法</h4>
+    <p style="font-size:0.92em">
+      <strong>第1步：</strong>各系统原始分换算为 0-100 统一尺度（100=最健康）<br>
+      <strong>第2步：</strong>上述4因子加权计算每个系统的原始权重分<br>
+      <strong>第3步：</strong>归一化至100%（8个系统权重之和=100%）<br>
+      <strong>第4步：</strong>对每种食物，取覆盖该食物的系统权重加权平均：<br>
+      <code style="background:#eee;padding:2px 8px;border-radius:4px">加权分 = Σ(系统权重% × 系统标准化分) / Σ(覆盖系统的权重%)</code><br>
+      <strong>第5步：</strong>若仅1个系统覆盖该食物 → 直接采用，标注"★单一来源"
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════ 系统权重表 ═══════════════ -->
+<section id="s0b">
+  <div class="section-header"><h2>8大系统权重分配</h2><span class="avg">按归一化权重排序</span></div>
+
+  <div class="summary-grid">
+    <div class="summary-card" style="border-left-color:var(--green-bar)">
+      <div class="cat-name">01 · CHEI 中国健康饮食指数</div>
+      <div class="cat-score" style="color:var(--green)">20%</div>
+      <div class="cat-note">Nutrients 2024(IF=5.6) · CN=10 · 中国人群最适用<br>原始分7.51 → 排名第1</div>
+    </div>
+    <div class="summary-card" style="border-left-color:var(--green-bar)">
+      <div class="cat-name">02 · Food Compass 2.0</div>
+      <div class="cat-score" style="color:var(--green)">16%</div>
+      <div class="cat-note">Nature Food 2024(IF=20) · CN=2 · 期刊影响因子最高<br>原始分5.95 → 排名第2</div>
+    </div>
+    <div class="summary-card" style="border-left-color:var(--yellow-bar)">
+      <div class="cat-name">03 · GDQS 全球饮食质量评分</div>
+      <div class="cat-score" style="color:var(--yellow)">15%</div>
+      <div class="cat-note">J. Nutrition 2021(IF=4.5) · CN=6 · 含中国验证<br>原始分5.46 → 排名第3</div>
+    </div>
+    <div class="summary-card" style="border-left-color:var(--yellow-bar)">
+      <div class="cat-name">04 · Nutri-Score 2023修订</div>
+      <div class="cat-score" style="color:var(--yellow)">14%</div>
+      <div class="cat-note">EU多国政策 2023 · CN=3 · 广泛引用<br>原始分5.05 → 排名第4</div>
+    </div>
+    <div class="summary-card" style="border-left-color:var(--yellow-bar)">
+      <div class="cat-name">05 · NOVA 加工程度分类</div>
+      <div class="cat-score" style="color:var(--yellow)">11%</div>
+      <div class="cat-note">World Nutr 2016(IF=1.5) · CN=5 · 引用最高<br>原始分4.00 → 排名第5（年份最老）</div>
+    </div>
+    <div class="summary-card" style="border-left-color:var(--red-bar)">
+      <div class="cat-name">06 · NCS 营养消费评分</div>
+      <div class="cat-score" style="color:var(--red)">9%</div>
+      <div class="cat-note">medRxiv 2024预印本 · CN=2 · 无IF无引用<br>原始分3.15 → 排名第6</div>
+    </div>
+    <div class="summary-card" style="border-left-color:var(--red-bar)">
+      <div class="cat-name">07 · MDD-W 女性膳食多样性</div>
+      <div class="cat-score" style="color:var(--red)">8%</div>
+      <div class="cat-note">FAO 2016标准 · CN=4 · 全球监测用<br>原始分3.05 → 排名第7</div>
+    </div>
+    <div class="summary-card" style="border-left-color:var(--red-bar)">
+      <div class="cat-name">08 · Health Star Rating</div>
+      <div class="cat-score" style="color:var(--red)">7%</div>
+      <div class="cat-note">澳/新政府 2020 · CN=1 · 中国无关<br>原始分2.75 → 排名第8</div>
+    </div>
+  </div>
+
+  <div class="footnote-box">
+    <strong>排除系统：</strong>DQI-I(Kim 2003, 23年) · 原始HEI-2015(美国专用) · PDQS(被GDQS取代) · Traffic Light(无综合评分)
+  </div>
+</section>
+
+<!-- ═══════════════ 1. 浆果 ═══════════════ -->
+<section id="s1">
+  <div class="section-header"><h2>一、浆果/莓果类</h2><span class="avg">加权均分 99</span><span class="tag green">鼓励食用</span></div>
+  <div class="subsection">
+    <h3 style="background:var(--green-bg);color:var(--green)">覆盖系统：FC2(16%) + GDQS(15%) + CHEI(20%) + NOVA(11%) + HSR(7%) = 69%</h3>
+    <table>
+      <thead><tr><th style="width:28%">食物</th><th style="width:10%">加权分</th><th style="width:50%">各系统评分明细</th><th>来源</th></tr></thead>
+      <tbody>
+        <tr><td>蓝莓 (Blueberries)</td><td><span class="score high">99</span></td><td>FC2=100 | GDQS(其他水果组高摄入)=100 | CHEI=100 | NOVA(G1)=95 | HSR=100</td><td>5系统</td></tr>
+        <tr><td>草莓 (Strawberries)</td><td><span class="score high">99</span></td><td>FC2=100 | GDQS(高)=100 | CHEI=100 | NOVA=95 | HSR=100</td><td>5系统</td></tr>
+        <tr><td>覆盆子 (Raspberries)</td><td><span class="score high">99</span></td><td>FC2=100 | GDQS(高)=100 | CHEI=100 | NOVA=95 | HSR=100</td><td>5系统</td></tr>
+        <tr><td>黑莓 (Blackberries)</td><td><span class="score high">99</span></td><td>FC2=100 | GDQS(高)=100 | CHEI=100 | NOVA=95 | HSR=100</td><td>5系统</td></tr>
+        <tr class="note-row"><td colspan="4">高分原因：纤维密度高、天然低糖、植物多酚/花青素丰富、未经加工。5个系统高度一致</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════ 2. 柑橘 ═══════════════ -->
+<section id="s2">
+  <div class="section-header"><h2>二、柑橘类</h2><span class="avg">加权均分 93</span><span class="tag green">鼓励食用</span></div>
+  <div class="subsection">
+    <h3 style="background:var(--green-bg);color:var(--green)">覆盖系统：FC2 + GDQS + CHEI + NOVA + HSR = 69%</h3>
+    <table>
+      <thead><tr><th style="width:28%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+      <tbody>
+        <tr><td>橙子 (Oranges)</td><td><span class="score high">98</span></td><td>FC2=95 | GDQS(柑橘组高)=100 | CHEI=100 | NOVA=95 | HSR=100</td><td>5系统</td></tr>
+        <tr><td>葡萄柚 (Grapefruit)</td><td><span class="score high">97</span></td><td>FC2=93 | GDQS(柑橘组高)=100 | CHEI=100 | NOVA=95 | HSR=100</td><td>5系统</td></tr>
+        <tr><td>柠檬/青柠</td><td><span class="score high">88</span></td><td>FC2=92 | GDQS(中摄入)=50 | CHEI=100 | NOVA=95 | HSR=100</td><td>5系统</td></tr>
+        <tr class="note-row"><td colspan="4">柠檬通常作为调味品少量使用，GDQS中摄入属于中等因此分低</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════ 3. 一般水果 ═══════════════ -->
+<section id="s3">
+  <div class="section-header"><h2>三、一般水果</h2><span class="avg">加权均分 89</span><span class="tag green">鼓励食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>苹果 (Apples)</td><td><span class="score high">95</span></td><td>FC2=85 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | HSR=100</td><td>6系统</td></tr>
+      <tr><td>梨 (Pears)</td><td><span class="score high">94</span></td><td>FC2=82 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | HSR=100</td><td>6系统</td></tr>
+      <tr><td>香蕉 (Bananas)</td><td><span class="score high">91</span></td><td>FC2=70 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | HSR=100</td><td>6系统</td></tr>
+      <tr><td>葡萄 (Grapes)</td><td><span class="score high">90</span></td><td>FC2=68 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | HSR=100</td><td>6系统</td></tr>
+      <tr><td>芒果 (Mangoes)</td><td><span class="score high">88</span></td><td>FC2=65 | GDQS(深橙色水果)=100 | CHEI=100 | NOVA=95 | HSR=100</td><td>5系统</td></tr>
+      <tr><td>菠萝 (Pineapple)</td><td><span class="score high">87</span></td><td>FC2=63 | GDQS=100 | CHEI=100 | NOVA=95 | HSR=100</td><td>5系统</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 4. 水果干 ═══════════════ -->
+<section id="s4">
+  <div class="section-header"><h2>四、水果干</h2><span class="avg">加权均分 79</span><span class="tag green">鼓励食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>西梅干 (Prunes)</td><td><span class="score high">84</span></td><td>FC2=75 | GDQS=100 | NOVA=95 | Nutri-Score=B(70) | HSR=80</td><td>5系统</td></tr>
+      <tr><td>葡萄干 (Raisins)</td><td><span class="score high">82</span></td><td>FC2=70 | GDQS=100 | NOVA=95 | Nutri-Score=B(70) | HSR=80</td><td>5系统</td></tr>
+      <tr><td>椰枣/枣干 (Dates)</td><td><span class="score high">75</span></td><td>FC2=68 | GDQS=100 | NOVA=95 | Nutri-Score=C(50) | HSR=70</td><td>5系统</td></tr>
+      <tr class="note-row"><td colspan="4">枣在中国传统饮食中是重要的天然甜味来源。营养浓缩但糖分也高度浓缩</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 5. 绿叶蔬菜 ═══════════════ -->
+<section id="s5">
+  <div class="section-header"><h2>五、绿叶蔬菜</h2><span class="avg">加权均分 92</span><span class="tag green">鼓励食用</span></div>
+  <div class="subsection">
+    <h3 style="background:var(--green-bg);color:var(--green)">覆盖系统：全部8系统 = 100% <span class="tag green">全覆盖</span></h3>
+    <table>
+      <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+      <tbody>
+        <tr><td>羽衣甘蓝 (Kale)</td><td><span class="score high">98</span></td><td>FC2=100 | GDQS(深绿叶菜高)=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | HSR=100 | MDD-W=100 | NCS=95</td><td>8系统</td></tr>
+        <tr><td>菠菜 (Spinach)</td><td><span class="score high">98</span></td><td>FC2=100 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | HSR=100 | MDD-W=100 | NCS=95</td><td>8系统</td></tr>
+        <tr><td>芝麻菜 (Arugula)</td><td><span class="score high">96</span></td><td>FC2=98 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90)</td><td>6系统</td></tr>
+        <tr><td>生菜/莴苣 (Lettuce)</td><td><span class="score high">84</span></td><td>FC2=90 | GDQS(中摄入)=50 | CHEI=80 | NOVA=95 | Nutri-Score=A(90) | HSR=100 | MDD-W=100 | NCS=85</td><td>8系统</td></tr>
+        <tr class="note-row"><td colspan="4">绿叶蔬菜是所有食物类别中营养素密度最高的，8个系统全覆盖且高度一致</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════ 6. 十字花科 ═══════════════ -->
+<section id="s6">
+  <div class="section-header"><h2>六、十字花科蔬菜</h2><span class="avg">加权均分 92</span><span class="tag green">鼓励食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>西兰花 (Broccoli)</td><td><span class="score high">97</span></td><td>FC2=100 | GDQS(十字花科高)=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | NCS=90</td><td>6系统</td></tr>
+      <tr><td>菜花/花椰菜 (Cauliflower)</td><td><span class="score high">94</span></td><td>FC2=95 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | NCS=85</td><td>6系统</td></tr>
+      <tr><td>卷心菜 (Cabbage)</td><td><span class="score high">93</span></td><td>FC2=92 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | NCS=85</td><td>6系统</td></tr>
+      <tr class="note-row"><td colspan="4">卷心菜(圆白菜)在中国饮食中极为常见，炒/炖/泡菜等多种烹饪方式，覆盖率极高</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 7. 红色/橙色蔬菜 ═══════════════ -->
+<section id="s7">
+  <div class="section-header"><h2>七、红色/橙色蔬菜</h2><span class="avg">加权均分 83</span><span class="tag green">鼓励食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>番茄 (Tomatoes)</td><td><span class="score high">86</span></td><td>FC2=85 | GDQS(其他蔬菜组高=50) | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | MDD-W=100</td><td>6系统</td></tr>
+      <tr><td>红椒 (Red Peppers)</td><td><span class="score high">85</span></td><td>FC2=85 | GDQS=50 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | MDD-W=100</td><td>6系统</td></tr>
+      <tr><td>胡萝卜 (Carrots)</td><td><span class="score high">84</span></td><td>FC2=80 | GDQS(深橙色蔬菜高=50) | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | MDD-W=100</td><td>6系统</td></tr>
+      <tr><td>南瓜 (Pumpkin)</td><td><span class="score high">83</span></td><td>FC2=78 | GDQS(深橙色蔬菜)=50 | CHEI=100 | NOVA=95 | MDD-W=100</td><td>5系统</td></tr>
+      <tr><td>红薯 (Sweet Potato)</td><td><span class="score high">79</span></td><td>FC2=72 | GDQS(深橙色块茎高=50) | CHEI(薯类)=100 | NOVA=95</td><td>4系统</td></tr>
+      <tr class="note-row"><td colspan="4">GDQS将番茄归为"其他蔬菜"仅给0.5分(换算50)，未充分体现番茄红素价值。红薯在中国既是主食也是蔬菜，CHEI专门有薯类组件</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 8. 淀粉类蔬菜 ═══════════════ -->
+<section id="s8">
+  <div class="section-header"><h2>八、淀粉类蔬菜</h2><span class="avg">加权均分 63</span><span class="tag yellow">适量食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>豌豆 (Green Peas)</td><td><span class="score high">86</span></td><td>FC2=65 | GDQS(豆类组高)=100 | CHEI=100 | NOVA=95</td><td>4系统</td></tr>
+      <tr><td>土豆-蒸/烤无油</td><td><span class="score high">78</span></td><td>FC2=58 | GDQS(白色根茎低摄入=100) | CHEI=80 | NOVA=95 | Nutri-Score=B/C(60)</td><td>5系统</td></tr>
+      <tr><td>玉米-整粒无添加</td><td><span class="score high">76</span></td><td>FC2=55 | GDQS(全谷物高)=100 | CHEI=80 | NOVA=95 | Nutri-Score=B(70)</td><td>5系统</td></tr>
+      <tr><td>炸薯条</td><td><span class="score low">12</span></td><td>FC2=15 | GDQS(油炸高摄入=0) | CHEI=10 | NOVA(G4)=5 | Nutri-Score=D(25)</td><td>5系统</td></tr>
+      <tr class="note-row"><td colspan="4">⚠ 同一原料(土豆)因加工方式不同，评分从78(蒸烤)暴跌至12(油炸)。GDQS中将白色根茎视为不健康组</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 9. 豆类 ═══════════════ -->
+<section id="s9">
+  <div class="section-header"><h2>九、豆类</h2><span class="avg">加权均分 88</span><span class="tag green">鼓励食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>扁豆 (Lentils)</td><td><span class="score high">96</span></td><td>FC2=92 | GDQS(豆类高)=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | MDD-W=100 | NCS=90</td><td>7系统</td></tr>
+      <tr><td>鹰嘴豆 (Chickpeas)</td><td><span class="score high">94</span></td><td>FC2=90 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | MDD-W=100</td><td>6系统</td></tr>
+      <tr><td>黑豆 (Black Beans)</td><td><span class="score high">94</span></td><td>FC2=88 | GDQS=100 | CHEI=100 | NOVA=95 | MDD-W=100</td><td>5系统</td></tr>
+      <tr><td>毛豆/枝豆 (Edamame)</td><td><span class="score high">93</span></td><td>FC2=88 | GDQS=100 | CHEI(大豆)=100 | NOVA=95 | NCS=85</td><td>5系统</td></tr>
+      <tr><td>天贝 (Tempeh)</td><td><span class="score high">91</span></td><td>FC2=85 | GDQS=100 | CHEI=100 | NOVA(G1发酵)=95 | NCS=85</td><td>5系统</td></tr>
+      <tr><td>花生 (Peanuts)</td><td><span class="score high">91</span></td><td>FC2=82 | GDQS=100 | CHEI=100 | NOVA=95 | NCS=85</td><td>6系统</td></tr>
+      <tr><td style="color:#c0392b;font-weight:700">豆腐 (Tofu) ⚠</td><td><span class="score high">74</span></td><td>FC2=75 | GDQS=50 | CHEI=100 | <span style="color:red">NOVA(G3)=35</span> | Nutri-Score=A(90) | NCS=80</td><td>6系统</td></tr>
+      <tr class="note-row"><td colspan="4">⚠ 豆腐是系统间分歧最大的食物之一：NOVA将其归为第3组加工食品(35分)，CHEI给100分。天贝(发酵属G1=95)与豆腐(压制属G3=35)的NOVA分歧达60分，但FC2和CHEI认为两者均为优质植物蛋白。加权后豆腐74分 vs 天贝91分</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 10. 坚果与种子 ═══════════════ -->
+<section id="s10">
+  <div class="section-header"><h2>十、坚果与种子</h2><span class="avg">加权均分 91</span><span class="tag green">鼓励食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>奇亚籽 (Chia Seeds)</td><td><span class="score high">97</span></td><td>FC2=100 | GDQS(坚果种子高)=100 | CHEI=100 | NOVA=95 | Nutri-Score(油脂类)=90 | MDD-W=100 | NCS=95</td><td>7系统</td></tr>
+      <tr><td>核桃 (Walnuts)</td><td><span class="score high">97</span></td><td>FC2=98 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=95 | MDD-W=100 | NCS=95</td><td>7系统</td></tr>
+      <tr><td>亚麻籽 (Flaxseeds)</td><td><span class="score high">97</span></td><td>FC2=98 | GDQS=100 | CHEI=100 | NOVA=95 | NCS=95</td><td>6系统</td></tr>
+      <tr><td>杏仁 (Almonds)</td><td><span class="score high">92</span></td><td>FC2=92 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score(油脂类)=B(70) | NCS=90</td><td>7系统</td></tr>
+      <tr><td>腰果 (Cashews)</td><td><span class="score high">87</span></td><td>FC2=85 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score(油脂类)=C(50) | NCS=80</td><td>7系统</td></tr>
+      <tr><td>夏威夷果 (Macadamia)</td><td><span class="score high">84</span></td><td>FC2=78 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score(油脂类)=C(50) | NCS=75</td><td>6系统</td></tr>
+      <tr class="note-row"><td colspan="4">Nutri-Score 2023版将坚果独立分类后，高饱脂坚果(腰果/夏威夷果)评分下调。所有系统一致认可坚果的高健康价值</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 11. 全谷物 ═══════════════ -->
+<section id="s11">
+  <div class="section-header"><h2>十一、全谷物</h2><span class="avg">加权均分 86</span><span class="tag green">鼓励食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>藜麦 (Quinoa)</td><td><span class="score high">95</span></td><td>FC2=89 | GDQS(全谷物高)=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | MDD-W=100</td><td>6系统</td></tr>
+      <tr><td>钢切燕麦</td><td><span class="score high">94</span></td><td>FC2=85 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | MDD-W=100</td><td>6系统</td></tr>
+      <tr><td>荞麦 (Buckwheat)</td><td><span class="score high">91</span></td><td>FC2=80 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90)</td><td>5系统</td></tr>
+      <tr><td>小米 (Millet)</td><td><span class="score high">90</span></td><td>FC2=75 | GDQS=100 | CHEI=100 | NOVA=95</td><td>4系统</td></tr>
+      <tr><td>糙米 (Brown Rice)</td><td><span class="score high">86</span></td><td>FC2=70 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=B(70)</td><td>5系统</td></tr>
+      <tr><td>全麦面包</td><td><span class="score mid">62</span></td><td>FC2=60 | GDQS=100 | CHEI=70 | <span style="color:red">NOVA(G3/G4)=25</span> | Nutri-Score=A/B(75) | NCS=65</td><td>6系统</td></tr>
+      <tr class="note-row"><td colspan="4">⚠ 全麦面包的系统间分歧：NOVA视工业全麦面包(含添加剂)为G4(5分)，手工为G3(35分)。荞麦在中国(荞麦面/茶)有重要传统地位</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 12. 精制谷物 ═══════════════ -->
+<section id="s12">
+  <div class="section-header"><h2>十二、精制谷物</h2><span class="avg">加权均分 40</span><span class="tag yellow">适量食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td style="font-weight:700">白米饭 (White Rice) ⚠</td><td><span class="score mid">67</span></td><td>FC2=23 | <span style="color:green">GDQS(精制谷物低摄入=100)</span> | CHEI=80 | <span style="color:green">NOVA(G1)=95</span> | Nutri-Score=C/D(40)</td><td>5系统</td></tr>
+      <tr><td>意大利面/面条 (Pasta)</td><td><span class="score mid">67</span></td><td>FC2=45 | GDQS=100(低摄入) | CHEI=60 | NOVA(G1)=95 | Nutri-Score=B(70)</td><td>5系统</td></tr>
+      <tr><td>米粉 (Rice Noodles)</td><td><span class="score low">32</span></td><td>FC2=12 | GDQS(高摄入精制=0) | CHEI=40 | NOVA(G1)=95</td><td>4系统</td></tr>
+      <tr><td>白面包</td><td><span class="score low">28</span></td><td>FC2=6 | GDQS=100(低摄入) | CHEI=40 | NOVA(G4)=5 | Nutri-Score=D(25)</td><td>5系统</td></tr>
+      <tr><td>方便面</td><td><span class="score low">3</span></td><td>FC2=1 | GDQS(高摄入=0) | CHEI=5 | NOVA(G4)=5 | Nutri-Score=E(5)</td><td>5系统</td></tr>
+      <tr class="note-row"><td colspan="4">⚠ 白米饭是系统分歧最大的食物：GDQS将精制谷物视为不健康组(反向计分)→低摄入满分；NOVA认为白米饭是第1组(最健康)→95分。FC2给23分。反映了"营养素密度" vs "加工程度"的根本矛盾。中国南方主食，FC2强调搭配蔬菜+蛋白后可升至70分</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 13. 鱼类 ═══════════════ -->
+<section id="s13">
+  <div class="section-header"><h2>十三、鱼类与海鲜</h2><span class="avg">加权均分 90</span><span class="tag green">鼓励食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>鲭鱼 (Mackerel)</td><td><span class="score high">96</span></td><td>FC2=92 | GDQS(鱼贝高)=100 | CHEI=100 | NOVA=95 | MDD-W=100</td><td>5系统</td></tr>
+      <tr><td>三文鱼 (Salmon, 烤)</td><td><span class="score high">95</span></td><td>FC2=93 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score(新版高脂鱼)=A(90) | MDD-W=100</td><td>6系统</td></tr>
+      <tr><td>鳕鱼 (Cod)</td><td><span class="score high">91</span></td><td>FC2=80 | GDQS=100 | CHEI=100 | NOVA=95</td><td>5系统</td></tr>
+      <tr><td>金枪鱼-新鲜 (Tuna)</td><td><span class="score high">89</span></td><td>FC2=78 | GDQS=100 | CHEI=100 | NOVA=95</td><td>5系统</td></tr>
+      <tr><td>沙丁鱼-罐装 ⚠</td><td><span class="score high">89</span></td><td>FC2=95 | GDQS=100 | CHEI=100 | <span style="color:red">NOVA(G3)=35</span> | Nutri-Score=A(90)</td><td>5系统</td></tr>
+      <tr><td>罗非鱼 (Tilapia)</td><td><span class="score high">88</span></td><td>FC2=70 | GDQS=100 | CHEI=100 | NOVA=95</td><td>5系统</td></tr>
+      <tr class="note-row"><td colspan="4">沙丁鱼罐装(NOVA G3=35) vs 新鲜(95)再次体现加工分类的分歧。罗非鱼是中国养殖量最大的鱼类之一</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 14. 贝类 ═══════════════ -->
+<section id="s14">
+  <div class="section-header"><h2>十四、贝类与甲壳类</h2><span class="avg">加权均分 94</span><span class="tag green">鼓励食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>蛤蜊/花甲 (Clams)</td><td><span class="score high">97</span></td><td>FC2=88 | GDQS(鱼贝高)=100 | CHEI=100 | NOVA=95 | MDD-W=100</td></tr>
+      <tr><td>牡蛎 (Oysters)</td><td><span class="score high">96</span></td><td>FC2=88 | GDQS=100 | CHEI=100 | NOVA=95 | MDD-W=100</td></tr>
+      <tr><td>扇贝 (Scallops)</td><td><span class="score high">93</span></td><td>FC2=80 | GDQS=100 | CHEI=100 | NOVA=95 | MDD-W=100</td></tr>
+      <tr><td>虾 (Shrimp)</td><td><span class="score high">92</span></td><td>FC2=78 | GDQS=100 | CHEI=100 | NOVA=95 | MDD-W=100</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 15-18: 禽肉/红肉/加工肉/蛋 ═══════════════ -->
+<section id="s15">
+  <div class="section-header"><h2>十五、禽肉</h2><span class="avg">加权均分 83</span><span class="tag green">鼓励食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>火鸡胸肉</td><td><span class="score high">88</span></td><td>FC2=62 | GDQS(禽肉高)=100 | CHEI=100 | NOVA=95 | MDD-W=100</td><td>5系统</td></tr>
+      <tr><td>鸡胸肉-烤去皮</td><td><span class="score high">86</span></td><td>FC2=57 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=B(70) | MDD-W=100</td><td>6系统</td></tr>
+      <tr><td>鸡腿肉-烤带皮</td><td><span class="score high">83</span></td><td>FC2=54 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=B(70) | MDD-W=100</td><td>6系统</td></tr>
+      <tr><td>鸭肉 (Duck)</td><td><span class="score high">82</span></td><td>FC2≈50 | GDQS=100 | CHEI=100 | NOVA=95 | MDD-W=100</td><td>5系统</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s16">
+  <div class="section-header"><h2>十六、红肉（未加工）</h2><span class="avg">加权均分 58</span><span class="tag yellow">适量食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>鹿肉 (Venison)</td><td><span class="score high">79</span></td><td>FC2≈55 | GDQS(野味高)=100 | CHEI=80 | NOVA=95 | Nutri-Score=B/C(60)</td><td>5系统</td></tr>
+      <tr><td>瘦牛肉-烤</td><td><span class="score mid">60</span></td><td>FC2=48 | GDQS(红肉中摄入=50) | CHEI=60 | <span style="color:green">NOVA=95</span> | <span style="color:red">Nutri-Score(红肉子类)=D(30)</span> | MDD-W=100</td><td>6系统</td></tr>
+      <tr><td>牛肝</td><td><span class="score mid">59</span></td><td>FC2=55 | GDQS=50 | CHEI=70 | NOVA=95 | Nutri-Score=D(30)</td><td>5系统</td></tr>
+      <tr><td>瘦猪肉</td><td><span class="score mid">53</span></td><td>FC2=44 | GDQS=50 | CHEI=50 | NOVA=95 | Nutri-Score=D(30) | MDD-W=100</td><td>6系统</td></tr>
+      <tr class="note-row"><td colspan="4">⚠ 红肉的系统间分歧极大：NOVA(未加工=G1→95) vs Nutri-Score(红肉子类=限制蛋白→30)。猪肉是中国消费量最大的红肉，对中国饮食评估至关重要</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s17">
+  <div class="section-header"><h2>十七、加工肉类</h2><span class="avg">加权均分 6</span><span class="tag red">尽量少吃</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>培根</td><td><span class="score low">11</span></td><td>FC2=26 | GDQS(加工肉高摄入=0) | CHEI=15 | NOVA(G4)=5 | Nutri-Score=E(5)</td></tr>
+      <tr><td>火腿/热狗/萨拉米</td><td><span class="score low">5</span></td><td>FC2≈6 | GDQS=0 | CHEI=10 | NOVA(G4)=5 | Nutri-Score=E(5)</td></tr>
+      <tr><td>中国腊肉/腊肠</td><td><span class="score low">5</span></td><td>FC2≈10(类比萨拉米) | GDQS=0 | CHEI=10 | NOVA(G4)=5 ★单一来源</td></tr>
+      <tr class="note-row"><td colspan="3">所有系统高度一致：加工肉类是评分最低的食品类别之一。高钠+饱和脂肪+超加工+亚硝酸盐多重扣分</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s18">
+  <div class="section-header"><h2>十八、蛋类</h2><span class="avg">加权均分 73</span><span class="tag green">鼓励食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>蛋白 (Egg Whites)</td><td><span class="score high">89</span></td><td>FC2=70 | GDQS(蛋组高)=100 | CHEI=100 | NOVA=95 | Nutri-Score=A(90) | NCS=85</td><td>7系统</td></tr>
+      <tr><td>水煮蛋/蒸蛋</td><td><span class="score high">86</span></td><td>FC2=65 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=B(70) | MDD-W=100 | NCS=75</td><td>7系统</td></tr>
+      <tr><td>全蛋无油煎</td><td><span class="score high">84</span></td><td>FC2=62 | GDQS=100 | CHEI=100 | NOVA=95 | Nutri-Score=B(70) | MDD-W=100</td><td>6系统</td></tr>
+      <tr><td>炒蛋 (Scrambled)</td><td><span class="score high">71</span></td><td>FC2=58 | GDQS=67 | CHEI=90 | NOVA=85 | Nutri-Score=B(70) | NCS=70</td><td>6系统</td></tr>
+      <tr><td>咸鸭蛋 ★</td><td><span class="score low">25</span></td><td>FC2≈40(估) | GDQS=0 | CHEI=40 | NOVA(G3)=35 ★单一来源(FC2类比)</td><td>3系统</td></tr>
+      <tr class="note-row"><td colspan="4">咸鸭蛋是中国传统食品，高钠明显扣分。蛋类整体评分良好，FC2 2.0对鸡蛋的评分从1.0的46升至54(均分)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 19-21: 乳制品 ═══════════════ -->
+<section id="s19">
+  <div class="section-header"><h2>十九、牛奶</h2><span class="avg">加权均分 69</span><span class="tag yellow">适量食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>脱脂牛奶</td><td><span class="score high">85</span></td><td>FC2=75 | GDQS(低脂乳制品高)=100 | CHEI=80 | NOVA=95 | Nutri-Score(饮料)=B(70) | MDD-W=100</td></tr>
+      <tr><td>低脂牛奶 (1%)</td><td><span class="score high">83</span></td><td>FC2=70 | GDQS=100 | CHEI=80 | NOVA=95 | Nutri-Score=B(70) | MDD-W=100</td></tr>
+      <tr><td>全脂牛奶</td><td><span class="score mid">63</span></td><td>FC2=58 | GDQS(高脂乳制品中摄入=50) | CHEI=70 | NOVA=95 | Nutri-Score=C(50) | MDD-W=100</td></tr>
+      <tr><td>巧克力牛奶</td><td><span class="score low">20</span></td><td>FC2=35 | GDQS(含糖饮料=0) | CHEI=30 | NOVA(G4)=5</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s20">
+  <div class="section-header"><h2>二十、酸奶</h2><span class="avg">加权均分 67</span><span class="tag yellow">适量食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>低脂希腊酸奶(原味)</td><td><span class="score high">90</span></td><td>FC2=82 | GDQS(低脂乳制品高)=100 | CHEI=80 | NOVA=95 | Nutri-Score=A(90) | MDD-W=100</td></tr>
+      <tr><td>全脂原味酸奶</td><td><span class="score mid">69</span></td><td>FC2=70 | GDQS(高脂乳制品中=50) | CHEI=80 | NOVA=95 | Nutri-Score=B/C(60)</td></tr>
+      <tr><td>水果风味酸奶</td><td><span class="score mid">42</span></td><td>FC2=87(争议) | GDQS=50 | CHEI=40 | <span style="color:red">NOVA(G4)=5</span> | Nutri-Score=C/D(40)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s21">
+  <div class="section-header"><h2>二十一、奶酪</h2><span class="avg">加权均分 36</span><span class="tag yellow">适量食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>低脂乡村奶酪</td><td><span class="score mid">68</span></td><td>FC2=60 | GDQS=100 | CHEI=80 | NOVA(G3)=35 | Nutri-Score=60</td></tr>
+      <tr><td>马苏里拉</td><td><span class="score mid">42</span></td><td>FC2=40 | GDQS=50 | CHEI=60 | NOVA(G3)=35 | Nutri-Score=D(30)</td></tr>
+      <tr><td>切达奶酪</td><td><span class="score low">24</span></td><td>FC2=30 | GDQS(高摄入=0) | CHEI=50 | NOVA(G3)=35 | Nutri-Score=D/E(25)</td></tr>
+      <tr><td>奶油奶酪</td><td><span class="score low">10</span></td><td>FC2=15 | GDQS(高摄入=0) | CHEI=30 | NOVA(G4)=5 | Nutri-Score=E(5)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 22-23: 油脂 ═══════════════ -->
+<section id="s22">
+  <div class="section-header"><h2>二十二、植物油</h2><span class="avg">加权均分 54</span><span class="tag yellow">适量食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td style="color:#c0392b">橄榄油 ⚠</td><td><span class="score mid">68</span></td><td>FC2=81 | GDQS=100 | <span style="color:red">CHEI(烹饪油限制)=20</span> | NOVA(G2)=65 | Nutri-Score(油脂类)=B(80) | NCS=80</td></tr>
+      <tr><td>菜籽油</td><td><span class="score mid">65</span></td><td>FC2=72 | GDQS=100 | CHEI=20 | NOVA(G2)=65 | Nutri-Score=B(80)</td></tr>
+      <tr><td>大豆油</td><td><span class="score mid">59</span></td><td>FC2=68 | GDQS=100 | CHEI=20 | NOVA(G2)=65 | Nutri-Score=C(50) | NCS=75</td></tr>
+      <tr><td>椰子油</td><td><span class="score mid">41</span></td><td>FC2=35 | GDQS=100 | CHEI=20 | NOVA=65 | Nutri-Score(高饱脂)=E(5) | NCS=40</td></tr>
+      <tr><td>棕榈油</td><td><span class="score mid">38</span></td><td>FC2=20 | GDQS=100(高摄入) | CHEI=10 | NOVA(G2/G4)=35 | Nutri-Score=E(5) | NCS=30</td></tr>
+      <tr class="note-row"><td colspan="3">⚠ 植物油是系统间分歧最大的类别之一。CHEI将所有烹饪油归为限制性组件(仅20分)，反映了中国膳食指南对"控油"的优先级(中国人均烹饪油摄入远超推荐量)。GDQS/NCS则按脂肪质量给植物油高分。加权后橄榄油仅68分</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s23">
+  <div class="section-header"><h2>二十三、动物脂肪</h2><span class="avg">加权均分 21</span><span class="tag red">尽量少吃</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>猪油 (Lard)</td><td><span class="score low">23</span></td><td>FC2=16 | GDQS=0 | CHEI=10 | <span style="color:green">NOVA(G2)=65</span> | Nutri-Score=E(5)</td></tr>
+      <tr><td>奶油 (Cream)</td><td><span class="score low">21</span></td><td>FC2=12 | GDQS=0 | CHEI=10 | NOVA(G2)=65 | Nutri-Score=E(5)</td></tr>
+      <tr><td>黄油 (Butter)</td><td><span class="score low">19</span></td><td>FC2=6 | GDQS=0 | CHEI=10 | NOVA(G2)=65 | Nutri-Score=E(5)</td></tr>
+      <tr class="note-row"><td colspan="3">NOVA视黄油/猪油为第2组(烹饪配料65分)，其他所有系统给0-16分(极低)。猪油是中国传统烹饪用油(尤其川菜/湘菜)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 24. 饮料 ═══════════════ -->
+<section id="s24">
+  <div class="section-header"><h2>二十四、饮料类</h2><span class="avg">加权均分 34</span><span class="tag yellow">适量食用</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>水</td><td><span class="score high">97</span></td><td>FC2≈100 | Nutri-Score=A(90+) | NOVA=95</td></tr>
+      <tr><td>无糖黑咖啡</td><td><span class="score high">91</span></td><td>FC2≈90 | CHEI=90 | Nutri-Score=A(90) | NOVA=95 ★单一来源</td></tr>
+      <tr><td>无糖绿茶</td><td><span class="score high">91</span></td><td>FC2≈90 | CHEI=90 | Nutri-Score=A(90) | NOVA=95 ★单一来源</td></tr>
+      <tr><td style="color:#c0392b">100%纯果蔬汁 ⚠</td><td><span class="score mid">49</span></td><td>FC2=66 | <span style="color:red">GDQS(果汁高摄入=0)</span> | CHEI=80 | Nutri-Score(饮料)=C(50)</td></tr>
+      <tr><td>代糖饮料</td><td><span class="score low">19</span></td><td>FC2≈20 | GDQS≈30 | CHEI=10 | Nutri-Score(甜味剂罚)=C(50) | NOVA(G4)=5</td></tr>
+      <tr><td>含糖汽水</td><td><span class="score low">12</span></td><td>FC2=28 | GDQS(含糖饮料高=0) | CHEI=10 | Nutri-Score=D/E(20) | NOVA(G4)=5</td></tr>
+      <tr><td>可乐</td><td><span class="score low">4</span></td><td>FC2=1 | GDQS=0 | CHEI=10 | Nutri-Score=E(5) | NOVA(G4)=5</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 25-30 剩余类别 ═══════════════ -->
+<section id="s25">
+  <div class="section-header"><h2>二十五、植物基替代品</h2><span class="avg">加权均分 34</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>豆奶/豆浆(无糖)</td><td><span class="score mid">56</span></td><td>FC2=55 | NOVA(G3)=35 | Nutri-Score(饮料)=B(70) | NCS=60</td></tr>
+      <tr><td>燕麦奶</td><td><span class="score mid">38</span></td><td>FC2≈42 | NOVA(G3/G4)=20 | Nutri-Score(饮料)=C(50) | NCS=45</td></tr>
+      <tr><td>植物肉替代品</td><td><span class="score low">25</span></td><td>FC2≈35 | NOVA(G4)=5 | Nutri-Score=C/D(35) | NCS=35</td></tr>
+      <tr><td>植物基奶酪替代品</td><td><span class="score low">17</span></td><td>FC2≈30 | NOVA(G4)=5 | Nutri-Score=D/E(15) | NCS=25</td></tr>
+      <tr class="note-row"><td colspan="3">豆奶/豆浆在中国早餐中极为普遍。NCS的比率方法(碳纤比/脂质比)对植物奶相对友好</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s26">
+  <div class="section-header"><h2>二十六、零食与甜点</h2><span class="avg">加权均分 19</span><span class="tag red">尽量少吃</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>空气爆米花(无油)</td><td><span class="score mid">67</span></td><td>FC2=65 | GDQS(全谷物)=50 | CHEI=80 | NOVA(G1)=95</td></tr>
+      <tr><td>黑巧克力(>=70%可可)</td><td><span class="score mid">36</span></td><td>FC2=55 | GDQS(甜食中=50) | CHEI=30 | NOVA(G4)=5 | Nutri-Score=C/D(35)</td></tr>
+      <tr><td>微波黄油爆米花</td><td><span class="score low">14</span></td><td>FC2=20 | GDQS=0 | CHEI=20 | NOVA(G4)=5 | Nutri-Score=D(25)</td></tr>
+      <tr><td>薯片</td><td><span class="score low">9</span></td><td>FC2=12 | GDQS(油炸高=0) | CHEI=10 | NOVA(G4)=5 | Nutri-Score=D(25)</td></tr>
+      <tr><td>饼干</td><td><span class="score low">8</span></td><td>FC2=12 | GDQS=0 | CHEI=10 | NOVA(G4)=5 | Nutri-Score=D/E(15)</td></tr>
+      <tr><td>糖果(巧克力焦糖)</td><td><span class="score low">2</span></td><td>FC2=1 | GDQS=0 | CHEI=5 | NOVA(G4)=5 | Nutri-Score=E(5)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s27">
+  <div class="section-header"><h2>二十七、酱汁与调味品</h2><span class="avg">加权均分 33</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>醋 (Vinegar)</td><td><span class="score mid">66</span></td><td>FC2≈50 | CHEI=80 | NOVA(G2)=65 | Nutri-Score=A/B(80) ★单一来源(FC2估)</td></tr>
+      <tr><td>意面酱(无糖)</td><td><span class="score mid">57</span></td><td>FC2=60 | CHEI=70 | NOVA(G3)=35 | Nutri-Score=B(70)</td></tr>
+      <tr><td>芥末 (Mustard)</td><td><span class="score mid">55</span></td><td>FC2=55 | CHEI=70 | NOVA(G3)=35 | Nutri-Score=B(70)</td></tr>
+      <tr><td style="color:#c0392b">酱油 (Soy Sauce) ⚠</td><td><span class="score low">24</span></td><td>FC2=30 | CHEI(钠限制)=10 | NOVA(G3)=35 | Nutri-Score=C/D(30)</td></tr>
+      <tr><td>番茄酱 (Ketchup)</td><td><span class="score low">19</span></td><td>FC2=25 | CHEI=20 | NOVA(G4)=5 | Nutri-Score=D(25)</td></tr>
+      <tr><td>蛋黄酱</td><td><span class="score low">8</span></td><td>FC2=12 | CHEI=10 | NOVA(G4)=5 | Nutri-Score=E(5)</td></tr>
+      <tr class="note-row"><td colspan="3">酱油是中国饮食中最常用的调味品，高钠是主要扣分原因。CHEI将酱油钠含量归入钠限制组件</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s28">
+  <div class="section-header"><h2>二十八、早餐麦片</h2><span class="avg">加权均分 37</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>纯麦丝/全谷物无糖麦片</td><td><span class="score high">79</span></td><td>FC2=65 | GDQS(全谷物高)=100 | CHEI=100 | NOVA(G1/G3)=65</td></tr>
+      <tr><td>调味即食燕麦</td><td><span class="score mid">38</span></td><td>FC2=53 | GDQS=50 | CHEI≈40 | NOVA(G4)=5</td></tr>
+      <tr><td>含糖儿童麦片</td><td><span class="score low">13</span></td><td>FC2=25 | GDQS=0 | CHEI=15 | NOVA(G4)=5 | Nutri-Score=D(25)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s29">
+  <div class="section-header"><h2>二十九、腌制蔬菜</h2><span class="avg">加权均分 40</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">加权分</th><th>各系统评分明细</th></tr></thead>
+    <tbody>
+      <tr><td>泡菜/韩式泡菜 (Kimchi)</td><td><span class="score mid">49</span></td><td>FC2=56 | CHEI=50 | NOVA(G3发酵)=35 | Nutri-Score=C(50)</td></tr>
+      <tr><td>腌黄瓜 (Pickles)</td><td><span class="score mid">46</span></td><td>FC2=55 | CHEI=40 | NOVA(G3)=35 | Nutri-Score=C(50)</td></tr>
+      <tr><td>中国酸菜</td><td><span class="score mid">42</span></td><td>FC2≈50(类比泡菜) | CHEI=40 | NOVA(G3)=35 ★单一来源(FC2类比)</td></tr>
+      <tr><td style="color:#c0392b">榨菜/酱菜</td><td><span class="score low">22</span></td><td>FC2≈30(类比高钠腌菜) | CHEI=10 | NOVA(G3)=20 ★单一来源(FC2类比估)</td></tr>
+      <tr class="note-row"><td colspan="3">泡菜的益生菌有益(+分) vs 高钠扣分(-分)，FC2给出56分的平衡评分。中国传统佐餐小菜(榨菜)因超高钠严重扣分</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s30">
+  <div class="section-header"><h2>三十、中式菜品（参考评分）</h2><span class="avg">加权均分 45-72</span><span class="tag yellow">取决于食材选择</span></div>
+  <table>
+    <thead><tr><th style="width:22%">食物</th><th style="width:10%">估算分</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>白米饭+瘦肉+蔬菜(组合)</td><td><span class="score high">72</span></td><td>FC2特别组合=70 | CHEI各组件综合=75。中国传统"主食+菜+肉"平衡模式获认可</td></tr>
+      <tr><td>中式炒青菜(少油)</td><td><span class="score mid">65</span></td><td>FC2≈80-油扣 | CHEI=90-油限制。用油量是关键变量，少油≈蒸则分高</td></tr>
+      <tr><td>饺子/锅贴(手工)</td><td><span class="score mid">55</span></td><td>FC2类比≈55 | CHEI=60-80。手工 vs 速冻的NOVA分类差异大</td></tr>
+      <tr><td>包子/馒头(手工)</td><td><span class="score mid">48</span></td><td>FC2以白面包类比(6)→低估。中式馒头通常无添加糖/油，调整≈48</td></tr>
+      <tr><td>扬州炒饭</td><td><span class="score mid">38</span></td><td>油量是关键。蛋炒饭(少油)≈50，油大版≈30</td></tr>
+      <tr><td>速冻饺子/速冻包子</td><td><span class="score low">30</span></td><td>NOVA(G4)=5 | 其他系统≈35-50。工业品添加剂扣分</td></tr>
+      <tr class="note-row"><td colspan="3">以上均为参考估算值，非精确加权计算。中式菜品的评分强烈取决于食材选择和烹饪用油量。FC2未直接对中国菜品评分</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════ 完整排名 ═══════════════ -->
+<section id="s99">
+  <div class="section-header"><h2>综合评分总排名</h2><span class="avg">128种食物，从高到低</span></div>
+  <div class="rank-table-wrap">
+    <table>
+      <thead><tr><th style="width:6%">排名</th><th style="width:34%">食物</th><th style="width:10%">加权分</th><th style="width:10%">区间</th><th style="width:40%">系统覆盖</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>蓝莓/黑莓/草莓/覆盆子</td><td><span class="score high">99</span></td><td>鼓励</td><td>5系统</td></tr>
+        <tr><td>2</td><td>羽衣甘蓝</td><td><span class="score high">98</span></td><td>鼓励</td><td>8系统(全覆盖)</td></tr>
+        <tr><td>3</td><td>菠菜</td><td><span class="score high">98</span></td><td>鼓励</td><td>8系统(全覆盖)</td></tr>
+        <tr><td>4</td><td>橙子</td><td><span class="score high">98</span></td><td>鼓励</td><td>5系统</td></tr>
+        <tr><td>5</td><td>奇亚籽</td><td><span class="score high">97</span></td><td>鼓励</td><td>7系统</td></tr>
+        <tr><td>6</td><td>核桃</td><td><span class="score high">97</span></td><td>鼓励</td><td>7系统</td></tr>
+        <tr><td>7</td><td>亚麻籽</td><td><span class="score high">97</span></td><td>鼓励</td><td>6系统</td></tr>
+        <tr><td>8</td><td>水</td><td><span class="score high">97</span></td><td>鼓励</td><td>★单一(FC2)</td></tr>
+        <tr><td>9</td><td>西兰花</td><td><span class="score high">97</span></td><td>鼓励</td><td>6系统</td></tr>
+        <tr><td>10</td><td>蛤蜊/牡蛎</td><td><span class="score high">97</span></td><td>鼓励</td><td>5系统</td></tr>
+        <tr><td>11</td><td>鲭鱼</td><td><span class="score high">96</span></td><td>鼓励</td><td>5系统</td></tr>
+        <tr><td>12</td><td>扁豆</td><td><span class="score high">96</span></td><td>鼓励</td><td>7系统</td></tr>
+        <tr><td>13</td><td>芝麻菜</td><td><span class="score high">96</span></td><td>鼓励</td><td>6系统</td></tr>
+        <tr><td>14</td><td>三文鱼</td><td><span class="score high">95</span></td><td>鼓励</td><td>6系统</td></tr>
+        <tr><td>15</td><td>苹果</td><td><span class="score high">95</span></td><td>鼓励</td><td>6系统</td></tr>
+        <tr><td>16</td><td>藜麦</td><td><span class="score high">95</span></td><td>鼓励</td><td>6系统</td></tr>
+        <tr><td>17</td><td>钢切燕麦</td><td><span class="score high">94</span></td><td>鼓励</td><td>6系统</td></tr>
+        <tr><td>18</td><td>鹰嘴豆/黑豆</td><td><span class="score high">94</span></td><td>鼓励</td><td>6系统</td></tr>
+        <tr><td>19</td><td>菜花/花椰菜</td><td><span class="score high">94</span></td><td>鼓励</td><td>6系统</td></tr>
+        <tr><td>20</td><td>扇贝</td><td><span class="score high">93</span></td><td>鼓励</td><td>5系统</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <details style="margin-top:10px">
+    <summary style="font-weight:700;cursor:pointer;padding:8px 0">展开查看完整排名(21-128)</summary>
+    <div class="rank-table-wrap" style="max-height:500px;margin-top:8px">
+    <table>
+      <thead><tr><th style="width:6%">排名</th><th style="width:34%">食物</th><th style="width:10%">加权分</th><th style="width:10%">区间</th></tr></thead>
+      <tbody>
+        <tr><td>21</td><td>毛豆</td><td><span class="score high">93</span></td><td>鼓励</td></tr>
+        <tr><td>22</td><td>卷心菜</td><td><span class="score high">93</span></td><td>鼓励</td></tr>
+        <tr><td>23</td><td>杏仁</td><td><span class="score high">92</span></td><td>鼓励</td></tr>
+        <tr><td>24</td><td>虾</td><td><span class="score high">92</span></td><td>鼓励</td></tr>
+        <tr><td>25</td><td>天贝</td><td><span class="score high">91</span></td><td>鼓励</td></tr>
+        <tr><td>26</td><td>花生</td><td><span class="score high">91</span></td><td>鼓励</td></tr>
+        <tr><td>27</td><td>荞麦</td><td><span class="score high">91</span></td><td>鼓励</td></tr>
+        <tr><td>28</td><td>鳕鱼</td><td><span class="score high">91</span></td><td>鼓励</td></tr>
+        <tr><td>29</td><td>无糖黑咖啡/绿茶</td><td><span class="score high">91</span></td><td>鼓励(★单一)</td></tr>
+        <tr><td>30</td><td>香蕉</td><td><span class="score high">91</span></td><td>鼓励</td></tr>
+        <tr><td>31</td><td>低脂希腊酸奶</td><td><span class="score high">90</span></td><td>鼓励</td></tr>
+        <tr><td>32</td><td>小米</td><td><span class="score high">90</span></td><td>鼓励</td></tr>
+        <tr><td>33</td><td>葡萄</td><td><span class="score high">90</span></td><td>鼓励</td></tr>
+        <tr><td>34</td><td>蛋白(蛋清)</td><td><span class="score high">89</span></td><td>鼓励</td></tr>
+        <tr><td>35</td><td>金枪鱼(新鲜)</td><td><span class="score high">89</span></td><td>鼓励</td></tr>
+        <tr><td>36</td><td>沙丁鱼(罐装)</td><td><span class="score high">89</span></td><td>鼓励</td></tr>
+        <tr><td>37</td><td>柠檬/青柠</td><td><span class="score high">88</span></td><td>鼓励</td></tr>
+        <tr><td>38</td><td>火鸡胸肉</td><td><span class="score high">88</span></td><td>鼓励</td></tr>
+        <tr><td>39</td><td>芒果</td><td><span class="score high">88</span></td><td>鼓励</td></tr>
+        <tr><td>40</td><td>罗非鱼</td><td><span class="score high">88</span></td><td>鼓励</td></tr>
+        <tr><td>41</td><td>菠萝</td><td><span class="score high">87</span></td><td>鼓励</td></tr>
+        <tr><td>42</td><td>腰果</td><td><span class="score high">87</span></td><td>鼓励</td></tr>
+        <tr><td>43</td><td>鸡胸肉(烤去皮)</td><td><span class="score high">86</span></td><td>鼓励</td></tr>
+        <tr><td>44</td><td>水煮蛋</td><td><span class="score high">86</span></td><td>鼓励</td></tr>
+        <tr><td>45</td><td>番茄</td><td><span class="score high">86</span></td><td>鼓励</td></tr>
+        <tr><td>46</td><td>糙米</td><td><span class="score high">86</span></td><td>鼓励</td></tr>
+        <tr><td>47</td><td>豌豆(蔬菜)</td><td><span class="score high">86</span></td><td>鼓励</td></tr>
+        <tr><td>48</td><td>脱脂牛奶</td><td><span class="score high">85</span></td><td>鼓励</td></tr>
+        <tr><td>49</td><td>红椒</td><td><span class="score high">85</span></td><td>鼓励</td></tr>
+        <tr><td>50</td><td>全蛋无油煎</td><td><span class="score high">84</span></td><td>鼓励</td></tr>
+        <tr><td>51</td><td>西梅干</td><td><span class="score high">84</span></td><td>鼓励</td></tr>
+        <tr><td>52</td><td>生菜</td><td><span class="score high">84</span></td><td>鼓励</td></tr>
+        <tr><td>53</td><td>胡萝卜</td><td><span class="score high">84</span></td><td>鼓励</td></tr>
+        <tr><td>54</td><td>夏威夷果</td><td><span class="score high">84</span></td><td>鼓励</td></tr>
+        <tr><td>55</td><td>南瓜</td><td><span class="score high">83</span></td><td>鼓励</td></tr>
+        <tr><td>56</td><td>低脂牛奶</td><td><span class="score high">83</span></td><td>鼓励</td></tr>
+        <tr><td>57</td><td>鸡腿肉(烤带皮)</td><td><span class="score high">83</span></td><td>鼓励</td></tr>
+        <tr><td>58</td><td>鸭肉</td><td><span class="score high">82</span></td><td>鼓励</td></tr>
+        <tr><td>59</td><td>葡萄干</td><td><span class="score high">82</span></td><td>鼓励</td></tr>
+        <tr><td>60</td><td>红薯</td><td><span class="score high">79</span></td><td>鼓励</td></tr>
+        <tr><td>61</td><td>鹿肉</td><td><span class="score high">79</span></td><td>鼓励</td></tr>
+        <tr><td>62</td><td>纯麦丝无糖麦片</td><td><span class="score high">79</span></td><td>鼓励</td></tr>
+        <tr><td>63</td><td>蒸/烤土豆(无油)</td><td><span class="score high">78</span></td><td>鼓励</td></tr>
+        <tr><td>64</td><td>玉米(整粒)</td><td><span class="score high">76</span></td><td>鼓励</td></tr>
+        <tr><td>65</td><td>椰枣</td><td><span class="score high">75</span></td><td>鼓励</td></tr>
+        <tr><td>66</td><td>豆腐 ⚠</td><td><span class="score high">74</span></td><td>鼓励(争议)</td></tr>
+        <tr><td>67</td><td>白米饭+瘦肉+蔬菜</td><td><span class="score high">72</span></td><td>鼓励</td></tr>
+        <tr><td>68</td><td>炒蛋</td><td><span class="score high">71</span></td><td>鼓励</td></tr>
+        <tr><td>69</td><td>全脂原味酸奶</td><td><span class="score mid">69</span></td><td>适量</td></tr>
+        <tr><td>70</td><td>低脂乡村奶酪</td><td><span class="score mid">68</span></td><td>适量</td></tr>
+        <tr><td>71</td><td>橄榄油 ⚠</td><td><span class="score mid">68</span></td><td>适量(争议)</td></tr>
+        <tr><td>72</td><td>白米饭(单独) ⚠</td><td><span class="score mid">67</span></td><td>适量(争议)</td></tr>
+        <tr><td>73</td><td>精制意面/面条</td><td><span class="score mid">67</span></td><td>适量</td></tr>
+        <tr><td>74</td><td>空气爆米花(无油)</td><td><span class="score mid">67</span></td><td>适量</td></tr>
+        <tr><td>75</td><td>醋</td><td><span class="score mid">66</span></td><td>适量</td></tr>
+        <tr><td>76</td><td>中式炒青菜(少油)</td><td><span class="score mid">65</span></td><td>适量(★估)</td></tr>
+        <tr><td>77</td><td>菜籽油</td><td><span class="score mid">65</span></td><td>适量</td></tr>
+        <tr><td>78</td><td>全脂牛奶</td><td><span class="score mid">63</span></td><td>适量</td></tr>
+        <tr><td>79</td><td>全麦面包</td><td><span class="score mid">62</span></td><td>适量</td></tr>
+        <tr><td>80</td><td>瘦牛肉</td><td><span class="score mid">60</span></td><td>适量</td></tr>
+        <tr><td>81</td><td>大豆油</td><td><span class="score mid">59</span></td><td>适量</td></tr>
+        <tr><td>82</td><td>牛肝</td><td><span class="score mid">59</span></td><td>适量</td></tr>
+        <tr><td>83</td><td>意面酱(无糖)</td><td><span class="score mid">57</span></td><td>适量</td></tr>
+        <tr><td>84</td><td>豆奶/豆浆(无糖)</td><td><span class="score mid">56</span></td><td>适量</td></tr>
+        <tr><td>85</td><td>芥末</td><td><span class="score mid">55</span></td><td>适量</td></tr>
+        <tr><td>86</td><td>饺子(手工)</td><td><span class="score mid">55</span></td><td>适量(★估)</td></tr>
+        <tr><td>87</td><td>瘦猪肉</td><td><span class="score mid">53</span></td><td>适量</td></tr>
+        <tr><td>88</td><td>泡菜/韩式泡菜</td><td><span class="score mid">49</span></td><td>适量</td></tr>
+        <tr><td>89</td><td>100%纯果蔬汁</td><td><span class="score mid">49</span></td><td>适量</td></tr>
+        <tr><td>90</td><td>包子/馒头(手工)</td><td><span class="score mid">48</span></td><td>适量(★估)</td></tr>
+        <tr><td>91</td><td>腌黄瓜</td><td><span class="score mid">46</span></td><td>适量</td></tr>
+        <tr><td>92</td><td>水果风味酸奶</td><td><span class="score mid">42</span></td><td>适量</td></tr>
+        <tr><td>93</td><td>马苏里拉奶酪</td><td><span class="score mid">42</span></td><td>适量</td></tr>
+        <tr><td>94</td><td>中国酸菜</td><td><span class="score mid">42</span></td><td>适量(★单一)</td></tr>
+        <tr><td>95</td><td>椰子油</td><td><span class="score mid">41</span></td><td>适量</td></tr>
+        <tr><td>96</td><td>调味即食燕麦</td><td><span class="score mid">38</span></td><td>适量</td></tr>
+        <tr><td>97</td><td>燕麦奶</td><td><span class="score mid">38</span></td><td>适量</td></tr>
+        <tr><td>98</td><td>棕榈油</td><td><span class="score mid">38</span></td><td>适量</td></tr>
+        <tr><td>99</td><td>扬州炒饭</td><td><span class="score mid">38</span></td><td>适量(★估)</td></tr>
+        <tr><td>100</td><td>黑巧克力(>=70%)</td><td><span class="score mid">36</span></td><td>适量</td></tr>
+        <tr><td>101</td><td>米粉</td><td><span class="score mid">32</span></td><td>适量</td></tr>
+        <tr><td>102</td><td>速冻饺子/包子</td><td><span class="score low">30</span></td><td>少吃(★估)</td></tr>
+        <tr><td>103</td><td>白面包</td><td><span class="score low">28</span></td><td>少吃</td></tr>
+        <tr><td>104</td><td>植物肉替代品</td><td><span class="score low">25</span></td><td>少吃</td></tr>
+        <tr><td>105</td><td>咸鸭蛋</td><td><span class="score low">25</span></td><td>少吃(★单一)</td></tr>
+        <tr><td>106</td><td>酱油</td><td><span class="score low">24</span></td><td>少吃</td></tr>
+        <tr><td>107</td><td>切达奶酪</td><td><span class="score low">24</span></td><td>少吃</td></tr>
+        <tr><td>108</td><td>猪油</td><td><span class="score low">23</span></td><td>少吃</td></tr>
+        <tr><td>109</td><td>榨菜/酱菜</td><td><span class="score low">22</span></td><td>少吃(★单一)</td></tr>
+        <tr><td>110</td><td>奶油</td><td><span class="score low">21</span></td><td>少吃</td></tr>
+        <tr><td>111</td><td>巧克力牛奶</td><td><span class="score low">20</span></td><td>少吃</td></tr>
+        <tr><td>112</td><td>黄油</td><td><span class="score low">19</span></td><td>少吃</td></tr>
+        <tr><td>113</td><td>代糖饮料</td><td><span class="score low">19</span></td><td>少吃</td></tr>
+        <tr><td>114</td><td>番茄酱(Ketchup)</td><td><span class="score low">19</span></td><td>少吃</td></tr>
+        <tr><td>115</td><td>植物基奶酪替代品</td><td><span class="score low">17</span></td><td>少吃</td></tr>
+        <tr><td>116</td><td>Froot Loops甜麦片</td><td><span class="score low">17</span></td><td>少吃</td></tr>
+        <tr><td>117</td><td>微波黄油爆米花</td><td><span class="score low">14</span></td><td>少吃</td></tr>
+        <tr><td>118</td><td>含糖儿童麦片</td><td><span class="score low">13</span></td><td>少吃</td></tr>
+        <tr><td>119</td><td>炸薯条</td><td><span class="score low">12</span></td><td>少吃</td></tr>
+        <tr><td>120</td><td>含糖汽水</td><td><span class="score low">12</span></td><td>少吃</td></tr>
+        <tr><td>121</td><td>运动饮料</td><td><span class="score low">12</span></td><td>少吃</td></tr>
+        <tr><td>122</td><td>培根</td><td><span class="score low">11</span></td><td>少吃</td></tr>
+        <tr><td>123</td><td>奶油奶酪/冰淇淋</td><td><span class="score low">10</span></td><td>少吃</td></tr>
+        <tr><td>124</td><td>薯片</td><td><span class="score low">9</span></td><td>少吃</td></tr>
+        <tr><td>125</td><td>饼干</td><td><span class="score low">8</span></td><td>少吃</td></tr>
+        <tr><td>126</td><td>蛋黄酱</td><td><span class="score low">8</span></td><td>少吃</td></tr>
+        <tr><td>127</td><td>蛋糕</td><td><span class="score low">6</span></td><td>少吃</td></tr>
+        <tr><td>128</td><td>火腿/热狗/萨拉米/腊肉</td><td><span class="score low">5</span></td><td>少吃</td></tr>
+        <tr><td>129</td><td>可乐</td><td><span class="score low">4</span></td><td>少吃</td></tr>
+        <tr><td>130</td><td>方便面</td><td><span class="score low">3</span></td><td>少吃</td></tr>
+        <tr><td>131</td><td>糖果(巧克力焦糖)</td><td><span class="score low">2</span></td><td>少吃</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </details>
+</section>
+
+<!-- ═══════════════ 局限性 ═══════════════ -->
+<section id="s100">
+  <div class="section-header"><h2>局限性说明与使用建议</h2></div>
+
+  <div class="info-box" style="border-left-color:var(--yellow)">
+    <h4 style="color:var(--yellow)">⚠ 重要声明</h4>
+    <p style="font-size:0.9em">
+      本加权系统是一个基于现有文献的<strong>数学合成模型</strong>，不是经过临床验证的营养指南。
+      评分仅供参考，不构成医疗或营养建议。核心数据来自美国/欧洲食品数据库，
+      中国特色食品的评分精度有限。
+    </p>
+  </div>
+
+  <div class="two-col" style="margin-top:16px">
+    <div>
+      <h4 style="margin-bottom:8px">系统性分歧</h4>
+      <ul style="font-size:0.9em;padding-left:20px">
+        <li><strong>NOVA vs 营养系统：</strong>豆腐(35 vs 90)、白米饭(95 vs 23)存在60分以上的根本分歧。NOVA按加工程度，FC2/CHEI按营养素密度。加权平均无法消除这一矛盾。</li>
+        <li><strong>植物油分歧：</strong>CHEI控油优先(20分) vs GDQS按脂肪质量(100分)</li>
+        <li><strong>红肉分歧：</strong>NOVA未加工=95分 vs Nutri-Score红肉子类=30分</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="margin-bottom:8px">数据局限</h4>
+      <ul style="font-size:0.9em;padding-left:20px">
+        <li><strong>中国特色食品缺口：</strong>腐乳/皮蛋/豆豉/豆瓣酱/老干妈等无系统评分，需独立研究</li>
+        <li><strong>烹饪方式未建模：</strong>蒸/炒/炖/炸/红烧未纳入修正系数</li>
+        <li><strong>单一来源标注：</strong>标注★的食物仅1个系统覆盖（主要是FC2），应视为参考值</li>
+        <li><strong>加权主观性：</strong>4个因子的权重比例(20/35/25/20)是主观分配，可调整</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-box" style="margin-top:16px">
+    <h4>未来改进方向</h4>
+    <ul style="font-size:0.9em;padding-left:20px">
+      <li>纳入中国食物成分数据库，建立中国食品的本地化评分</li>
+      <li>开发中式烹饪方式的评分修正系数（蒸+5 / 煮+0 / 炒-5 / 红烧-10 / 炸-20）</li>
+      <li>建立中式调味品的量效评分模型（酱油/醋/豆瓣酱/蚝油/料酒）</li>
+      <li>增加中国人群队列(如CHNS/中国慢性病前瞻性研究CKB)的验证研究</li>
+      <li>随时间推移更新权重（当新论文发表或系统更新时）</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════ Footer ═══════════════ -->
+<footer>
+  <p>综合加权食物评分系统 &copy; 2026-05-01 · 基于8大营养评分体系的加权合成</p>
+  <p style="margin-top:4px">期刊IF(20%) + 中国膳食相关性(35%) + 发表年份(25%) + 学术引用(20%) &nbsp;|&nbsp; 128种食物 &nbsp;|&nbsp; 10年时间范围(2016-2026)</p>
+  <p style="margin-top:8px;font-size:0.78em">
+    数据来源：Food Compass 2.0 (Nature Food 2024) · GDQS (J. Nutrition 2021) · CHEI/Zheng (Nutrients 2024) ·
+    Nutri-Score 2023 · NOVA (Monteiro 2016) · NCS (medRxiv 2024) · MDD-W (FAO 2016) · Health Star Rating (AU 2020)
+  </p>
+</footer>
+
+</div>
+</body>
+</html>

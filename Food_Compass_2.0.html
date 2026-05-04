@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Food Compass 2.0 — 食物健康评分完整排名</title>
+<style>
+  :root {
+    --green: #2d8a56;
+    --green-bg: #e8f5e9;
+    --green-bar: #4caf50;
+    --yellow: #e67e00;
+    --yellow-bg: #fff8e1;
+    --yellow-bar: #ff9800;
+    --red: #c0392b;
+    --red-bg: #ffebee;
+    --red-bar: #e74c3c;
+    --blue: #1a5276;
+    --blue-bg: #e3f2fd;
+    --bg: #f8f9fa;
+    --card: #ffffff;
+    --text: #2c3e50;
+    --text-secondary: #5a6c7d;
+    --border: #e0e4e8;
+    --shadow: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 30px rgba(0,0,0,0.1);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* ── Header ── */
+  .hero {
+    background: linear-gradient(135deg, #1a3a2a 0%, #1a5276 50%, #1a3a2a 100%);
+    color: #fff;
+    padding: 50px 20px;
+    text-align: center;
+  }
+  .hero h1 { font-size: 2.4em; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+  .hero .subtitle { font-size: 1.1em; opacity: 0.85; margin-bottom: 6px; }
+  .hero .meta { font-size: 0.9em; opacity: 0.65; margin-top: 10px; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+  /* ── Score Legend ── */
+  .legend {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    margin: -30px auto 30px; max-width: 700px; position: relative; z-index: 2;
+  }
+  .legend-item {
+    flex: 1; min-width: 140px; padding: 16px 20px; border-radius: 12px;
+    background: var(--card); box-shadow: var(--shadow-lg); text-align: center;
+  }
+  .legend-item .dot {
+    display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 6px; vertical-align: middle;
+  }
+  .legend-item .label { font-weight: 700; font-size: 0.95em; }
+  .legend-item .range { font-size: 0.85em; color: var(--text-secondary); margin-top: 2px; }
+
+  /* ── Section Cards ── */
+  section { margin: 36px 0; }
+  .section-header {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px;
+    padding-bottom: 10px; border-bottom: 2px solid var(--border);
+  }
+  .section-header .emoji { font-size: 1.6em; }
+  .section-header h2 { font-size: 1.5em; font-weight: 700; }
+  .section-header .avg { font-size: 0.9em; color: var(--text-secondary); }
+
+  /* ── Subsection ── */
+  .subsection { margin: 24px 0; }
+  .subsection h3 {
+    font-size: 1.15em; margin-bottom: 10px; padding: 8px 14px;
+    border-radius: 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .subsection h3 .stars { font-size: 0.85em; color: #e67e22; }
+
+  /* ── Tables ── */
+  table {
+    width: 100%; border-collapse: collapse; background: var(--card);
+    border-radius: 10px; overflow: hidden; box-shadow: var(--shadow);
+    margin-bottom: 10px;
+  }
+  thead { background: #f1f3f5; }
+  th { padding: 10px 14px; text-align: left; font-weight: 700; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
+  td { padding: 10px 14px; border-top: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: #fafbfc; }
+  .note-row td { background: #fdfcf0; font-size: 0.88em; color: var(--text-secondary); border-top: 2px solid #e0dcc0; padding: 10px 14px; line-height: 1.5; }
+
+  /* ── Score Badge ── */
+  .score {
+    display: inline-block; min-width: 42px; padding: 3px 10px; border-radius: 20px;
+    font-weight: 800; font-size: 0.92em; text-align: center; letter-spacing: -0.3px;
+  }
+  .score.high { background: var(--green-bg); color: var(--green); }
+  .score.mid  { background: var(--yellow-bg); color: var(--yellow); }
+  .score.low  { background: var(--red-bg); color: var(--red); }
+
+  /* ── Progress bar ── */
+  .bar-wrap { display: flex; align-items: center; gap: 10px; }
+  .bar { flex: 1; height: 8px; border-radius: 4px; background: #eee; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+  .bar-fill.green  { background: var(--green-bar); }
+  .bar-fill.yellow { background: var(--yellow-bar); }
+  .bar-fill.red    { background: var(--red-bar); }
+  .bar-val { font-weight: 700; font-size: 0.9em; min-width: 36px; text-align: right; }
+
+  /* ── Change badge ── */
+  .change { font-size: 0.8em; font-weight: 600; margin-left: 4px; white-space: nowrap; }
+  .change.up { color: var(--green); }
+  .change.down { color: var(--red); }
+
+  /* ── Category Summary Cards ── */
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin: 20px 0; }
+  .summary-card {
+    background: var(--card); border-radius: 12px; padding: 18px 20px;
+    box-shadow: var(--shadow); border-left: 4px solid #ccc;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .summary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .summary-card .cat-name { font-weight: 700; font-size: 1.05em; margin-bottom: 4px; }
+  .summary-card .cat-score { font-size: 2em; font-weight: 800; }
+  .summary-card .cat-note { font-size: 0.82em; color: var(--text-secondary); margin-top: 4px; }
+
+  /* ── Two-column ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── Methodology box ── */
+  .info-box {
+    background: var(--blue-bg); border-left: 4px solid var(--blue);
+    padding: 16px 20px; border-radius: 8px; margin: 16px 0;
+  }
+  .info-box h4 { margin-bottom: 6px; color: var(--blue); font-size: 0.95em; }
+
+  /* ── Footnotes ── */
+  .footnote-box {
+    background: #fdf8ee; border: 1px solid #e8dbb8; border-radius: 8px;
+    padding: 14px 18px; margin: 16px 0; font-size: 0.88em;
+  }
+
+  /* ── Chart placeholder ── */
+  .health-chart {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;
+    margin: 20px 0;
+  }
+  .health-item {
+    background: var(--card); border-radius: 10px; padding: 14px 16px;
+    box-shadow: var(--shadow); display: flex; align-items: center; gap: 12px;
+  }
+  .health-item .arrow { font-size: 1.3em; font-weight: 800; min-width: 36px; text-align: center; }
+  .health-item .arrow.down { color: var(--green); }
+  .health-item .arrow.up   { color: var(--red); }
+  .health-item .detail { font-size: 0.9em; }
+  .health-item .val { font-weight: 700; }
+
+  footer {
+    text-align: center; padding: 30px 20px; color: var(--text-secondary);
+    font-size: 0.82em; border-top: 1px solid var(--border); margin-top: 40px;
+  }
+
+  .toc { margin: 20px 0; }
+  .toc summary { font-weight: 700; font-size: 1.1em; cursor: pointer; padding: 8px 0; user-select: none; }
+  .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; margin-top: 10px; }
+  .toc-grid a { color: var(--blue); text-decoration: none; font-size: 0.9em; padding: 4px 8px; border-radius: 6px; }
+  .toc-grid a:hover { background: var(--blue-bg); }
+
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.78em; font-weight: 600;
+    margin-left: 6px;
+  }
+  .tag.green  { background: var(--green-bg); color: var(--green); }
+  .tag.yellow { background: var(--yellow-bg); color: var(--yellow); }
+  .tag.red    { background: var(--red-bg); color: var(--red); }
+
+  .highlight { background: linear-gradient(180deg, transparent 60%, #ffeb3b 60%); padding: 0 2px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HERO ═══════════════════════ -->
+<div class="hero">
+  <h1>Food Compass 2.0</h1>
+  <div class="subtitle">食物健康评分 · 完整分类排名</div>
+  <div class="meta">
+    Nature Food · November 2024 &nbsp;|&nbsp; Tufts University<br>
+    基于 9,273 种美国食品与饮料 (NHANES 2001–2018)
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ── Score Legend ── -->
+  <div class="legend">
+    <div class="legend-item">
+      <span class="dot" style="background:var(--green)"></span>
+      <span class="label">鼓励食用</span>
+      <div class="range">FCS ≥ 70 · 23% 产品</div>
+    </div>
+    <div class="legend-item">
+      <span class="dot" style="background:var(--yellow)"></span>
+      <span class="label">适量食用</span>
+      <div class="range">FCS 31–69 · 46% 产品</div>
+    </div>
+    <div class="legend-item">
+      <span class="dot" style="background:var(--red)"></span>
+      <span class="label">尽量少吃</span>
+      <div class="range">FCS ≤ 30 · 31% 产品</div>
+    </div>
+  </div>
+
+  <!-- ── 评分维度 ── -->
+  <div class="info-box">
+    <h4>评分体系：9 个维度综合评估（1=最不健康，100=最健康）</h4>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 16px;font-size:0.9em;">
+      <span>1. 营养素比例（脂肪/碳水/矿物质质量）</span>
+      <span>2. 维生素含量</span>
+      <span>3. 矿物质含量</span>
+      <span>4. 食品配料（正面/负面）</span>
+      <span>5. 膳食纤维</span>
+      <span>6. 蛋白质质量</span>
+      <span>7. 特定脂类（omega-3 等）</span>
+      <span>8. 食品加工程度</span>
+      <span>9. 植物化合物与人工添加剂</span>
+    </div>
+  </div>
+
+  <!-- ── TOC ── -->
+  <details class="toc">
+    <summary>目录（点击展开/收起）</summary>
+    <div class="toc-grid">
+      <a href="#s1">水果</a> <a href="#s2">蔬菜</a> <a href="#s3">肉类</a>
+      <a href="#s4">蛋类</a> <a href="#s5">海鲜</a> <a href="#s6">谷物主食</a>
+      <a href="#s7">豆类</a> <a href="#s8">坚果种子</a> <a href="#s9">乳制品</a>
+      <a href="#s10">油脂</a> <a href="#s11">饮料</a> <a href="#s12">混合菜肴</a>
+      <a href="#s13">零食甜点</a> <a href="#s14">酱汁调味品</a>
+      <a href="#s15">变化原因</a> <a href="#s16">健康关联</a>
+    </div>
+  </details>
+
+  <!-- ═══════════════ 类别总览卡片 ═══════════════ -->
+  <section>
+    <div class="section-header"><span class="emoji"></span><h2>各类别总览</h2></div>
+    <div class="summary-grid">
+
+      <div class="summary-card" style="border-left-color:var(--green-bar)">
+        <div class="cat-name">坚果与种子</div>
+        <div class="cat-score" style="color:var(--green)">84.9</div>
+        <div style="margin-top:2px"><span class="bar-wrap"><span class="bar"><span class="bar-fill green" style="width:85%"></span></span><span class="bar-val" style="color:var(--green)">85%</span></span></div>
+        <div class="cat-note">89% 产品 ≥70 分</div>
+      </div>
+
+      <div class="summary-card" style="border-left-color:var(--green-bar)">
+        <div class="cat-name">豆类</div>
+        <div class="cat-score" style="color:var(--green)">84.9</div>
+        <div style="margin-top:2px"><span class="bar-wrap"><span class="bar"><span class="bar-fill green" style="width:85%"></span></span><span class="bar-val" style="color:var(--green)">85%</span></span></div>
+        <div class="cat-note">80% 产品 ≥70 分</div>
+      </div>
+
+      <div class="summary-card" style="border-left-color:var(--green-bar)">
+        <div class="cat-name">海鲜</div>
+        <div class="cat-score" style="color:var(--green)">82.2</div>
+        <div style="margin-top:2px"><span class="bar-wrap"><span class="bar"><span class="bar-fill green" style="width:82%"></span></span><span class="bar-val" style="color:var(--green)">82%</span></span></div>
+        <div class="cat-note">82% 产品 ≥70 分</div>
+      </div>
+
+      <div class="summary-card" style="border-left-color:var(--green-bar)">
+        <div class="cat-name">蔬菜</div>
+        <div class="cat-score" style="color:var(--green)">78.7</div>
+        <div style="margin-top:2px"><span class="bar-wrap"><span class="bar"><span class="bar-fill green" style="width:79%"></span></span><span class="bar-val" style="color:var(--green)">79%</span></span></div>
+        <div class="cat-note">63% 产品 ≥70 分</div>
+      </div>
+
+      <div class="summary-card" style="border-left-color:var(--green-bar)">
+        <div class="cat-name">水果</div>
+        <div class="cat-score" style="color:var(--green)">73.7</div>
+        <div style="margin-top:2px"><span class="bar-wrap"><span class="bar"><span class="bar-fill green" style="width:74%"></span></span><span class="bar-val" style="color:var(--green)">74%</span></span></div>
+        <div class="cat-note">53% 产品 ≥70 分</div>
+      </div>
+
+      <div class="summary-card" style="border-left-color:var(--yellow-bar)">
+        <div class="cat-name">蛋类</div>
+        <div class="cat-score" style="color:var(--yellow)">54</div>
+        <div style="margin-top:2px"><span class="bar-wrap"><span class="bar"><span class="bar-fill yellow" style="width:54%"></span></span><span class="bar-val" style="color:var(--yellow)">54%</span></span></div>
+        <div class="cat-note">89% 产品 31-69 分</div>
+      </div>
+
+      <div class="summary-card" style="border-left-color:var(--yellow-bar)">
+        <div class="cat-name">肉类</div>
+        <div class="cat-score" style="color:var(--yellow)">31-69</div>
+        <div style="margin-top:2px"><span class="bar-wrap"><span class="bar"><span class="bar-fill yellow" style="width:50%"></span></span><span class="bar-val" style="color:var(--yellow)">中等</span></span></div>
+        <div class="cat-note">52% 产品 31-69 分</div>
+      </div>
+
+      <div class="summary-card" style="border-left-color:var(--red-bar)">
+        <div class="cat-name">含糖饮料 & 动物脂肪</div>
+        <div class="cat-score" style="color:var(--red)">≤30</div>
+        <div style="margin-top:2px"><span class="bar-wrap"><span class="bar"><span class="bar-fill red" style="width:15%"></span></span><span class="bar-val" style="color:var(--red)">低</span></span></div>
+        <div class="cat-note">饮料 54% ≤30 分 · 动物脂肪 92% ≤30 分</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════ 1. 水果 ═══════════════ -->
+  <section id="s1">
+    <div class="section-header"><span class="emoji"></span><h2>一、水果</h2><span class="avg">大类均分 73.7</span></div>
+
+    <div class="subsection">
+      <h3 style="background:var(--green-bg);color:var(--green)">1.1 浆果/莓果类 <span class="stars">均分 95.7</span> <span class="tag green">鼓励食用</span></h3>
+      <table>
+        <thead><tr><th style="width:35%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>蓝莓 (Blueberries)</td><td><span class="score high">100</span></td><td>超高抗氧化物质(花青素)、高纤维、低糖、无加工、植物化合物丰富</td></tr>
+          <tr><td>生黑莓 (Raw blackberries)</td><td><span class="score high">100</span></td><td>多酚和纤维含量极高</td></tr>
+          <tr><td>草莓 (Strawberries)</td><td><span class="score high">100</span></td><td>维生素C极高、抗氧化、低热量</td></tr>
+          <tr><td>覆盆子 (Raspberries)</td><td><span class="score high">100</span></td><td>纤维极高、低糖、花青素丰富</td></tr>
+          <tr><td>蔓越莓 (Cranberries)</td><td><span class="score high">~95</span></td><td>抗氧化强，但通常需加糖食用</td></tr>
+          <tr class="note-row"><td colspan="3">高分原因：纤维密度高、天然低糖、植物多酚/花青素丰富、未经加工</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="subsection">
+      <h3 style="background:var(--green-bg);color:var(--green)">1.2 柑橘类 <span class="stars">均分 93.7</span> <span class="tag green">鼓励食用</span></h3>
+      <table>
+        <thead><tr><th style="width:35%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>橙子 (Oranges)</td><td><span class="score high">~95</span></td><td>维生素C极高、类黄酮丰富、纤维好</td></tr>
+          <tr><td>西柚/葡萄柚 (Grapefruit)</td><td><span class="score high">~93</span></td><td>低GI、维生素C、柚皮苷等活性物质</td></tr>
+          <tr><td>柠檬/青柠 (Lemons/Limes)</td><td><span class="score high">~92</span></td><td>维生素C、柠檬酸、植物化合物</td></tr>
+          <tr class="note-row"><td colspan="3">高分原因：维生素C密度高、类黄酮和类胡萝卜素丰富、低升糖指数</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two-col">
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">1.3 一般水果 <span class="stars">均分 68.5</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>苹果 (Apples)</td><td><span class="score high">~85</span></td></tr>
+            <tr><td>梨 (Pears)</td><td><span class="score high">~82</span></td></tr>
+            <tr><td>香蕉 (Bananas)</td><td><span class="score high">~70</span></td></tr>
+            <tr><td>葡萄 (Grapes)</td><td><span class="score mid">~68</span></td></tr>
+            <tr><td>芒果 (Mangoes)</td><td><span class="score mid">~65</span></td></tr>
+            <tr><td>菠萝 (Pineapple)</td><td><span class="score mid">~63</span></td></tr>
+          </tbody>
+        </table>
+        <div class="footnote-box">中等原因：有益营养素但天然糖分较高，热量密度相对浆果更高</div>
+      </div>
+
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">1.4 水果干 <span class="stars">均分 68.3</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>西梅干 (Prunes)</td><td><span class="score high">~75</span></td></tr>
+            <tr><td>无花果干 (Dried figs)</td><td><span class="score high">~72</span></td></tr>
+            <tr><td>葡萄干 (Raisins)</td><td><span class="score high">~70</span></td></tr>
+            <tr><td>枣干/椰枣 (Dates)</td><td><span class="score mid">~68</span></td></tr>
+          </tbody>
+        </table>
+        <div class="footnote-box">中等原因：营养浓缩但糖分也高度浓缩，能量密度高</div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 style="background:var(--yellow-bg);color:var(--yellow)">1.5 果蔬汁 <span class="stars">均分 66</span> <span class="change down">从 1.0 的 72 下降</span></h3>
+      <table>
+        <thead><tr><th style="width:35%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>100%纯果蔬汁</td><td><span class="score mid">~66</span></td><td>保留维生素但丢失纤维，2.0改为中性评分</td></tr>
+          <tr><td>含糖饮料</td><td><span class="score low">≤30</span></td><td>添加糖扣分严重，且缺乏纤维</td></tr>
+          <tr class="note-row"><td colspan="3">下降原因：2.0将果蔬汁作为配料改为中性评分（不再加分），因缺乏纤维</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 2. 蔬菜 ═══════════════ -->
+  <section id="s2">
+    <div class="section-header"><span class="emoji"></span><h2>二、蔬菜</h2><span class="avg">大类均分 78.7</span></div>
+
+    <div class="subsection">
+      <h3 style="background:var(--green-bg);color:var(--green)">2.1 绿叶蔬菜 <span class="stars">均分 100</span> <span class="tag green">满分</span></h3>
+      <table>
+        <thead><tr><th style="width:35%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>菠菜 (Spinach)</td><td><span class="score high">100</span></td><td>营养素密度极高、维生素K/A/C、叶酸、铁、钙、镁、纤维、无加工</td></tr>
+          <tr><td>羽衣甘蓝 (Kale)</td><td><span class="score high">100</span></td><td>抗氧化物质和硫代葡萄糖苷极丰富</td></tr>
+          <tr><td>印度菠菜鹰嘴豆 (Chana saag)</td><td><span class="score high">100</span></td><td>蔬菜+豆类的完美组合</td></tr>
+          <tr><td>瑞士甜菜 (Swiss chard)</td><td><span class="score high">~98</span></td><td>维生素K极高、镁、钾、抗氧化</td></tr>
+          <tr><td>芝麻菜 (Arugula)</td><td><span class="score high">~98</span></td><td>硝酸盐(有益)、维生素K、硫代葡萄糖苷</td></tr>
+          <tr><td>生菜/莴苣 (Lettuce)</td><td><span class="score high">~90</span></td><td>热量极低，但营养密度不如深绿叶菜</td></tr>
+          <tr class="note-row"><td colspan="3">满分原因：营养素密度在所有食物中最高、纤维极丰富、植物化合物多样、天然低热量</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two-col">
+      <div class="subsection">
+        <h3 style="background:var(--green-bg);color:var(--green)">2.2 一般蔬菜 <span class="stars">均分 83.3</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>西兰花 (Broccoli)</td><td><span class="score high">100</span></td></tr>
+            <tr><td>菜花 (Cauliflower)</td><td><span class="score high">~95</span></td></tr>
+            <tr><td>卷心菜 (Cabbage)</td><td><span class="score high">~92</span></td></tr>
+            <tr><td>芦笋 (Asparagus)</td><td><span class="score high">~90</span></td></tr>
+            <tr><td>黄瓜 (Cucumber)</td><td><span class="score high">~85</span></td></tr>
+            <tr><td>芹菜 (Celery)</td><td><span class="score high">~83</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3 style="background:var(--green-bg);color:var(--green)">2.3 红/橙色蔬菜 <span class="stars">均分 78.1</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>番茄 (Tomatoes)</td><td><span class="score high">~85</span></td></tr>
+            <tr><td>红椒 (Red peppers)</td><td><span class="score high">~85</span></td></tr>
+            <tr><td>胡萝卜 (Carrots)</td><td><span class="score high">~80</span></td></tr>
+            <tr><td>南瓜 (Pumpkin)</td><td><span class="score high">~78</span></td></tr>
+            <tr><td>红薯/甘薯 (Sweet potato)</td><td><span class="score high">~72</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">2.4 淀粉类蔬菜 <span class="stars">均分 57.6</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>豌豆 (Green peas)</td><td><span class="score mid">~65</span></td></tr>
+            <tr><td>土豆 (Potatoes)</td><td><span class="score mid">~58</span></td></tr>
+            <tr><td>山药 (Yam)</td><td><span class="score mid">~58</span></td></tr>
+            <tr><td>玉米 (Corn)</td><td><span class="score mid">~55</span></td></tr>
+          </tbody>
+        </table>
+        <div class="footnote-box">中等原因：淀粉/热量密度偏高，升糖影响大</div>
+      </div>
+
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">2.5 腌制蔬菜 <span class="stars">均分 55.8</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>泡菜/酸菜</td><td><span class="score mid">~56</span></td></tr>
+            <tr><td>腌黄瓜 (Pickles)</td><td><span class="score mid">~55</span></td></tr>
+          </tbody>
+        </table>
+        <div class="footnote-box">高钠和加工扣分抵消了蔬菜本身的益处</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 3. 肉类 ═══════════════ -->
+  <section id="s3">
+    <div class="section-header"><span class="emoji"></span><h2>三、肉类</h2><span class="avg">52% 在 31-69 区间</span></div>
+
+    <div class="two-col">
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">3.1 牛肉 <span class="change up">从 33 ↑ +11 → 44</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>牛肝 (Beef liver)</td><td><span class="score mid">~55</span></td></tr>
+            <tr><td>烤牛里脊(瘦)</td><td><span class="score mid">~48</span></td></tr>
+            <tr><td>牛肉 均分</td><td><span class="score mid">44</span></td></tr>
+            <tr><td>牛肉碎/绞牛肉</td><td><span class="score mid">~38</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">3.2 猪肉 <span class="change up">从 35 ↑ +9 → 44</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>猪肉 均分</td><td><span class="score mid">44</span></td></tr>
+            <tr><td>猪里脊肉 (Pork loin)</td><td><span class="score mid">~32</span></td></tr>
+            <tr><td>熟培根 (Cooked bacon)</td><td><span class="score low">26</span></td></tr>
+            <tr><td>火腿 (Ham)</td><td><span class="score low">6.4</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">3.3 羊肉/野味 <span class="change up">从 39 ↑ +10 → 49</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>鹿肉 (Venison)</td><td><span class="score mid">~55</span></td></tr>
+            <tr><td>羊肉/野味 均分</td><td><span class="score mid">49</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">3.4 家禽 <span class="stars">91% 在 31-69</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>火鸡胸肉 (Turkey breast)</td><td><span class="score mid">~62</span></td></tr>
+            <tr><td>烤鸡胸(带皮)</td><td><span class="score mid">59</span></td></tr>
+            <tr><td>烤鸡胸肉(去皮)</td><td><span class="score mid">~57</span></td></tr>
+            <tr><td>烤鸡腿(带皮)</td><td><span class="score mid">54</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 style="background:var(--red-bg);color:var(--red)">3.5 腌制肉类 <span class="stars">均分 6.4</span> <span class="tag red">0% ≥70分</span></h3>
+      <table>
+        <thead><tr><th style="width:35%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>火腿/腌火腿</td><td><span class="score low">6.4</span></td><td>超加工、高钠、亚硝酸盐/硝酸盐、添加剂多</td></tr>
+          <tr><td>培根 (Bacon)</td><td><span class="score low">26</span></td><td>高钠、高饱和脂肪、超加工</td></tr>
+          <tr><td>意大利腊肠/萨拉米 (Salami)</td><td><span class="score low">≤10</span></td><td>超加工、高钠、高饱和脂肪</td></tr>
+          <tr><td>热狗/香肠 (Hot dogs)</td><td><span class="score low">~5-8</span></td><td>高度超加工、添加剂多、低质脂肪</td></tr>
+          <tr class="note-row"><td colspan="3">低分原因：超加工严重扣分、高钠、高饱和脂肪、亚硝酸盐、多种人工添加剂</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footnote-box" style="margin-top:14px">
+      <strong>关键对比：</strong>同是猪肉，新鲜瘦猪肉（44 分）vs 培根（26 分）vs 火腿（6.4 分）差距巨大。<br>
+      <strong>2.0 上升原因：</strong>非超加工红肉获得加工维度的加分（1.0 只扣不加），同时反映了未加工红肉相对中性的健康证据。
+    </div>
+  </section>
+
+  <!-- ═══════════════ 4. 蛋类 ═══════════════ -->
+  <section id="s4">
+    <div class="section-header"><span class="emoji"></span><h2>四、蛋类</h2><span class="avg">均分 54 · 89% 在 31-69 区间</span><span class="change up">从 1.0 的 46 ↑ +8</span></div>
+    <table>
+      <thead><tr><th style="width:35%">食物</th><th style="width:10%">评分</th><th style="width:12%">1.0→2.0</th><th>原因</th></tr></thead>
+      <tbody>
+        <tr><td>水煮蛋/蒸蛋</td><td><span class="score mid">~65</span></td><td>↑</td><td>无额外脂肪，完美蛋白质来源</td></tr>
+        <tr><td>全蛋无油煎</td><td><span class="score mid">62</span></td><td>48→62</td><td>完整蛋白、胆碱、叶黄素、维生素D/B12，非超加工</td></tr>
+        <tr><td>蛋白 (Egg whites)</td><td><span class="score high">~70</span></td><td>-</td><td>纯蛋白无脂肪，但缺少蛋黄营养</td></tr>
+        <tr><td>炒蛋 (Scrambled egg)</td><td><span class="score mid">~58</span></td><td>-</td><td>取决于用油量</td></tr>
+        <tr><td>蛋替代品 (Egg substitute)</td><td><span class="score mid">45</span></td><td>50→45</td><td>加工食品、含添加剂</td></tr>
+        <tr class="note-row"><td colspan="4">上升原因：非超加工食品获加分 + 膳食胆固醇对血脂影响弱于此前认知。下降：蛋替代品因含添加剂和加工属性被降分</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════ 5. 海鲜 ═══════════════ -->
+  <section id="s5">
+    <div class="section-header"><span class="emoji"></span><h2>五、海鲜</h2><span class="avg">大类均分 82.2 · 82% ≥70 分</span><span class="change up">从 1.0 的 72 ↑ +10</span></div>
+
+    <div class="two-col">
+      <div class="subsection">
+        <h3 style="background:var(--green-bg);color:var(--green)">5.1 鱼类</h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>沙丁鱼 (Sardines)</td><td><span class="score high">~95</span></td></tr>
+            <tr><td>三文鱼 (Salmon, baked)</td><td><span class="score high">93</span></td></tr>
+            <tr><td>鲭鱼 (Mackerel)</td><td><span class="score high">~92</span></td></tr>
+            <tr><td>鳕鱼 (Cod)</td><td><span class="score high">~80</span></td></tr>
+            <tr><td>金枪鱼 (Tuna)</td><td><span class="score high">~78</span></td></tr>
+            <tr><td>罗非鱼 (Tilapia)</td><td><span class="score high">~70</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3 style="background:var(--green-bg);color:var(--green)">5.2 贝类/甲壳类</h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>蛤蜊/花甲 (Clams)</td><td><span class="score high">~88</span></td></tr>
+            <tr><td>牡蛎 (Oysters)</td><td><span class="score high">~88</span></td></tr>
+            <tr><td>贻贝 (Mussels)</td><td><span class="score high">~85</span></td></tr>
+            <tr><td>干虾 (Dried shrimp)</td><td><span class="score high">84</span></td></tr>
+            <tr><td>扇贝 (Scallops)</td><td><span class="score high">~80</span></td></tr>
+            <tr><td>虾 (Shrimp)</td><td><span class="score high">~78</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footnote-box">
+      <strong>2.0 上升原因：</strong>omega-3 权重提高（长链 EPA/DHA 加分更大）、非加工属性加分、营养密度被更充分评估。<br>
+      三文鱼因富含长链 omega-3 在 2.0 中获得更高评分；沙丁鱼连骨吃，钙和维生素D极高。
+    </div>
+  </section>
+
+  <!-- ═══════════════ 6. 谷物 ═══════════════ -->
+  <section id="s6">
+    <div class="section-header"><span class="emoji"></span><h2>六、谷物 / 主食</h2><span class="avg">评分跨度 1 → 89</span></div>
+
+    <div class="subsection">
+      <h3 style="background:var(--green-bg);color:var(--green)">6.1 全谷物 <span class="tag green">鼓励食用</span></h3>
+      <table>
+        <thead><tr><th style="width:30%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>藜麦 (Quinoa, 无油烹)</td><td><span class="score high">89</span></td><td>完全蛋白(含所有必需氨基酸)、纤维极高、无麸质、非加工</td></tr>
+          <tr><td>钢切燕麦/传统燕麦片</td><td><span class="score high">~85</span></td><td>β-葡聚糖(降胆固醇)、纤维极高、非加工</td></tr>
+          <tr><td>荞麦 (Buckwheat)</td><td><span class="score high">~80</span></td><td>完全蛋白、芦丁(抗氧化)、无麸质</td></tr>
+          <tr><td>小米 (Millet)</td><td><span class="score high">~75</span></td><td>无麸质全谷物、矿物质丰富</td></tr>
+          <tr><td>纯即食燕麦片</td><td><span class="score high">75</span></td><td>全谷物、纤维好，但经过一定加工</td></tr>
+          <tr><td>糙米 (Brown rice)</td><td><span class="score high">~70</span></td><td>全谷物、纤维，但矿物质含量不如藜麦</td></tr>
+          <tr><td>全麦面包 (Whole wheat bread)</td><td><span class="score mid">60</span></td><td>全谷物加分，但属于加工食品</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two-col">
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">6.2 米饭和面食 <span class="stars">均分 49</span> <span class="change up">从 43 ↑ +6</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>白米饭+瘦肉+蔬菜（组合餐）</td><td><span class="score high">70</span></td></tr>
+            <tr><td>全麦意大利面</td><td><span class="score high">~70</span></td></tr>
+            <tr><td>意大利面 (Pasta)</td><td><span class="score mid">~45</span></td></tr>
+            <tr><td>白米饭 (White rice)</td><td><span class="score low">23</span></td></tr>
+            <tr><td>米粉 (Rice noodles)</td><td><span class="score low">12</span></td></tr>
+            <tr><td>方便面 (Instant noodles)</td><td><span class="score low">1</span></td></tr>
+          </tbody>
+        </table>
+        <div class="footnote-box"><strong>关键洞察：</strong>白米饭单吃仅 23 分（NOVA 1 组但营养差），但搭配蔬菜和优质蛋白后可达 70 分。</div>
+      </div>
+
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">6.3 早餐麦片 & 面包</h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>纯麦丝/全谷物麦片</td><td><span class="score mid">~65</span></td></tr>
+            <tr><td>全麦面包</td><td><span class="score mid">60</span></td></tr>
+            <tr><td>调味即食燕麦</td><td><span class="score mid">53</span></td></tr>
+            <tr><td>酸面包 (Sourdough)</td><td><span class="score mid">~50</span></td></tr>
+            <tr><td>冷麦片 均分</td><td><span class="score mid">41</span> <span class="change down">-10</span></td></tr>
+            <tr><td>谷物棒 均分</td><td><span class="score mid">34</span> <span class="change down">-8</span></td></tr>
+            <tr><td>Froot Loops 甜味麦片</td><td><span class="score low">29</span></td></tr>
+            <tr><td>白面包 (White bread)</td><td><span class="score low">6</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 7. 豆类 ═══════════════ -->
+  <section id="s7">
+    <div class="section-header"><span class="emoji"></span><h2>七、豆类</h2><span class="avg">大类均分 84.9 · 80% ≥70 分</span></div>
+    <table>
+      <thead><tr><th style="width:30%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+      <tbody>
+        <tr><td>扁豆 (Lentils)</td><td><span class="score high">~92</span></td><td>纤维极高、铁/叶酸、蛋白、非加工</td></tr>
+        <tr><td>鹰嘴豆 (Chickpeas)</td><td><span class="score high">~90</span></td><td>蛋白+纤维黄金组合、叶酸高、低脂</td></tr>
+        <tr><td>黑豆 (Black beans)</td><td><span class="score high">~88</span></td><td>花青素(抗氧化)、纤维蛋白双高</td></tr>
+        <tr><td>毛豆/枝豆 (Edamame)</td><td><span class="score high">~88</span></td><td>完全蛋白、纤维、大豆异黄酮</td></tr>
+        <tr><td>芸豆/腰豆 (Kidney beans)</td><td><span class="score high">~86</span></td><td>纤维蛋白好、矿物质丰富</td></tr>
+        <tr><td>天贝 (Tempeh)</td><td><span class="score high">~85</span></td><td>发酵(益生菌)、完全蛋白、非超加工</td></tr>
+        <tr><td>花生 (Peanuts)</td><td><span class="score high">~82</span></td><td>实际是豆类、蛋白/健康脂肪、非加工</td></tr>
+        <tr><td>豆腐 (Tofu)</td><td><span class="score high">~75</span></td><td>植物蛋白好，但属加工食品须扣分</td></tr>
+        <tr class="note-row"><td colspan="3">高分原因：蛋白+纤维双高、低饱和脂肪、富含矿物质(B族/铁/锌)、非加工、低GI、植物化合物丰富(异黄酮等)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════ 8. 坚果 ═══════════════ -->
+  <section id="s8">
+    <div class="section-header"><span class="emoji"></span><h2>八、坚果与种子</h2><span class="avg">大类均分 84.9 · 89% ≥70 分</span></div>
+    <table>
+      <thead><tr><th style="width:25%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+      <tbody>
+        <tr><td>奇亚籽 (Chia seeds)</td><td><span class="score high">100</span></td><td>omega-3(ALA)极高、纤维极高(34%)、完全蛋白、钙/镁/磷丰富</td></tr>
+        <tr><td>核桃 (Walnuts)</td><td><span class="score high">~98</span></td><td>omega-3(ALA)最高坚果、抗氧化多酚、镁/铜</td></tr>
+        <tr><td>亚麻籽 (Flaxseeds)</td><td><span class="score high">~98</span></td><td>omega-3(ALA)极高、木酚素(抗癌)、纤维极高</td></tr>
+        <tr><td>杏仁 (Almonds)</td><td><span class="score high">~92</span></td><td>维生素E极高、镁/钙、蛋白好</td></tr>
+        <tr><td>南瓜籽 (Pumpkin seeds)</td><td><span class="score high">~90</span></td><td>锌/镁极高、蛋白、植物固醇</td></tr>
+        <tr><td>葵花籽 (Sunflower seeds)</td><td><span class="score high">~88</span></td><td>维生素E极高、硒、镁</td></tr>
+        <tr><td>开心果 (Pistachios)</td><td><span class="score high">~88</span></td><td>完全蛋白、叶黄素(护眼)、纤维好</td></tr>
+        <tr><td>芝麻 (Sesame seeds)</td><td><span class="score high">~87</span></td><td>钙高、芝麻素(抗氧化)、锌</td></tr>
+        <tr><td>腰果 (Cashews)</td><td><span class="score high">~85</span></td><td>铁/锌/镁，但饱和脂肪略高于其他坚果</td></tr>
+        <tr><td>巴西坚果 (Brazil nuts)</td><td><span class="score high">~85</span></td><td>硒含量惊人(1颗即超日需)、镁</td></tr>
+        <tr><td>碧根果/山核桃 (Pecans)</td><td><span class="score high">~83</span></td><td>抗氧化、单不饱和脂肪</td></tr>
+        <tr><td>夏威夷果 (Macadamia)</td><td><span class="score high">~78</span></td><td>单不饱和脂肪高，但饱和脂肪也偏高</td></tr>
+        <tr class="note-row"><td colspan="3">高分原因：健康脂肪(单/多不饱和)、蛋白、纤维、矿物质密度高、植物化合物、非加工</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════ 9. 乳制品 ═══════════════ -->
+  <section id="s9">
+    <div class="section-header"><span class="emoji"></span><h2>九、乳制品</h2><span class="avg">73% 在 31-69 区间</span></div>
+
+    <div class="two-col">
+      <div class="subsection">
+        <h3 style="background:var(--green-bg);color:var(--green)">9.1 酸奶</h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>低脂水果酸奶</td><td><span class="score high">87</span></td></tr>
+            <tr><td>低脂希腊酸奶(原味)</td><td><span class="score high">82</span></td></tr>
+            <tr><td>全脂希腊酸奶(原味)</td><td><span class="score high">~74</span></td></tr>
+            <tr><td>全脂酸奶(原味)</td><td><span class="score high">~70</span></td></tr>
+            <tr><td>冻酸奶 (Frozen yogurt)</td><td><span class="score low">23</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">9.2 奶酪</h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>低脂乡村奶酪 (Cottage)</td><td><span class="score mid">60</span></td></tr>
+            <tr><td>瑞可达奶酪(低脂)</td><td><span class="score mid">47</span></td></tr>
+            <tr><td>马苏里拉(低水分)</td><td><span class="score mid">~40</span></td></tr>
+            <tr><td>切达奶酪 (Cheddar)</td><td><span class="score low">~30</span></td></tr>
+            <tr><td>奶油奶酪 (Cream cheese)</td><td><span class="score low">~15</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="subsection">
+        <h3 style="background:var(--yellow-bg);color:var(--yellow)">9.3 牛奶</h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>脱脂牛奶 (Skim milk)</td><td><span class="score high">~75</span></td></tr>
+            <tr><td>低脂牛奶 (1% fat)</td><td><span class="score high">~70</span></td></tr>
+            <tr><td>全脂牛奶 (Whole milk)</td><td><span class="score mid">~58</span></td></tr>
+            <tr><td>巧克力牛奶</td><td><span class="score mid">~35</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3 style="background:var(--red-bg);color:var(--red)">9.4 植物基替代品 <span class="change down">均分 43 ↓-11</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>豆奶 (Soy milk)</td><td><span class="score mid">~55</span></td></tr>
+            <tr><td>杏仁奶(无糖)</td><td><span class="score mid">~50</span></td></tr>
+            <tr><td>燕麦奶 (Oat milk)</td><td><span class="score mid">~42</span></td></tr>
+            <tr><td>植物基肉替代品</td><td><span class="score mid">~35</span></td></tr>
+            <tr><td>植物基奶酪/蛋替代品</td><td><span class="score low">~30</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footnote-box">
+      <strong>2.0 变化：</strong>乳脂肪扣分降低（新证据表明乳脂对健康影响偏中性，Guo 2017, Pimpin 2016），全脂乳制品评分略升。<br>
+      植物基替代品得分下降（从 54 → 43）：许多为超加工食品、含多种添加剂、添加糖、高钠。
+    </div>
+  </section>
+
+  <!-- ═══════════════ 10. 油脂 ═══════════════ -->
+  <section id="s10">
+    <div class="section-header"><span class="emoji"></span><h2>十、脂肪与油</h2></div>
+
+    <div class="two-col">
+      <div class="subsection">
+        <h3 style="background:var(--green-bg);color:var(--green)">10.1 植物油 <span class="stars">54% ≥70 分</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>橄榄油 (Olive oil)</td><td><span class="score high">81</span></td></tr>
+            <tr><td>鳄梨油 (Avocado oil)</td><td><span class="score high">~80</span></td></tr>
+            <tr><td>菜籽油 (Canola oil)</td><td><span class="score high">~72</span></td></tr>
+            <tr><td>大豆油 (Soybean oil)</td><td><span class="score mid">~68</span></td></tr>
+            <tr><td>葵花籽油 (Sunflower oil)</td><td><span class="score mid">~65</span></td></tr>
+            <tr><td>椰子油 (Coconut oil)</td><td><span class="score mid">~35</span></td></tr>
+            <tr><td>棕榈油 (Palm oil)</td><td><span class="score low">~20</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3 style="background:var(--red-bg);color:var(--red)">10.2 动物脂肪 <span class="stars">92% ≤30 分</span></h3>
+        <table>
+          <thead><tr><th>食物</th><th>评分</th></tr></thead>
+          <tbody>
+            <tr><td>猪油 (Lard)</td><td><span class="score low">16</span></td></tr>
+            <tr><td>酸奶油 (Sour cream)</td><td><span class="score low">~15</span></td></tr>
+            <tr><td>奶油 (Cream)</td><td><span class="score low">~12</span></td></tr>
+            <tr><td>无脂人造黄油</td><td><span class="score low">10</span></td></tr>
+            <tr><td>黄油 (Butter)</td><td><span class="score low">6</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 11. 饮料 ═══════════════ -->
+  <section id="s11">
+    <div class="section-header"><span class="emoji"></span><h2>十一、饮料</h2><span class="avg">54% ≤30 分</span></div>
+    <table>
+      <thead><tr><th style="width:30%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+      <tbody>
+        <tr><td>水 (Water)</td><td><span class="score high">~100</span></td><td>零热量、必需、无任何负面属性</td></tr>
+        <tr><td>无糖咖啡 (Black coffee)</td><td><span class="score high">~90</span></td><td>多酚/绿原酸(抗氧化)、几乎零热量</td></tr>
+        <tr><td>无糖茶 (Unsweetened tea)</td><td><span class="score high">~90</span></td><td>儿茶素/茶多酚、零热量</td></tr>
+        <tr><td>100%果蔬汁</td><td><span class="score mid">66</span></td><td>含维生素但失纤维（2.0降为中性配料）</td></tr>
+        <tr><td>含糖果汁</td><td><span class="score mid">34</span></td><td>添加糖扣分</td></tr>
+        <tr><td>含糖汽水/能量饮料</td><td><span class="score low">28</span></td><td>添加糖严重、无营养价值</td></tr>
+        <tr><td>运动饮料 (Sports drinks)</td><td><span class="score low">~22</span></td><td>添加糖、人工色素、加工</td></tr>
+        <tr><td>代糖饮料 (Diet drinks)</td><td><span class="score low">~20</span></td><td>人工甜味剂（2.0新增数据）、超加工</td></tr>
+        <tr><td>可乐味软饮料 (Cola)</td><td><span class="score low">1</span></td><td>添加糖极高(或不健康代糖)、磷酸(损骨质)、超加工、零营养</td></tr>
+        <tr class="note-row"><td colspan="3">2.0 新增人工甜味剂数据后，代糖饮料进一步降分。添加糖作为主要配料独立扣分。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════ 12. 混合菜肴 ═══════════════ -->
+  <section id="s12">
+    <div class="section-header"><span class="emoji"></span><h2>十二、混合菜肴</h2></div>
+    <table>
+      <thead><tr><th style="width:30%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+      <tbody>
+        <tr><td>沙拉(含蔬菜+蛋白)</td><td><span class="score high">~75</span></td><td>高蔬菜+蛋白，取决于酱料</td></tr>
+        <tr><td>白米饭+瘦肉+蔬菜</td><td><span class="score high">70</span></td><td>组合后蛋白/纤维/营养素均衡</td></tr>
+        <tr><td>寿司 (Sushi)</td><td><span class="score mid">~55</span></td><td>鱼肉+米饭+海苔，但白米饭拉低分数</td></tr>
+        <tr><td>汤类 (Soups)</td><td><span class="score mid">~45</span></td><td>范围很广，取决于成分和加工程度</td></tr>
+        <tr><td>披萨 (Pizza)</td><td><span class="score low">~30</span></td><td>取决于配料，通常加工成分较多</td></tr>
+        <tr><td>芝士汉堡(含酱) Cheeseburger</td><td><span class="score low">13</span></td><td>精制面包+高饱和脂肪+超加工酱料</td></tr>
+        <tr class="note-row"><td colspan="3">Food Compass 2.0 的独特优势：可对混合膳食进行综合评分，这是 Nutri-Score、HSR 等系统无法做到的</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════ 13. 零食甜点 ═══════════════ -->
+  <section id="s13">
+    <div class="section-header"><span class="emoji"></span><h2>十三、零食与甜点</h2></div>
+    <table>
+      <thead><tr><th style="width:30%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+      <tbody>
+        <tr><td>爆米花(空气爆,无油)</td><td><span class="score mid">~65</span></td><td>全谷物、高纤维、非加工</td></tr>
+        <tr><td>黑巧克力(≥70%可可)</td><td><span class="score mid">~55</span></td><td>多酚/黄烷醇高、但脂肪和糖中等</td></tr>
+        <tr><td>爆米花(微波黄油)</td><td><span class="score low">~20</span></td><td>添加脂肪、超加工</td></tr>
+        <tr><td>冰淇淋 (Ice cream)</td><td><span class="score low">~18</span></td><td>高糖、高饱和脂肪、超加工</td></tr>
+        <tr><td>蛋糕 (Cake)</td><td><span class="score low">~15</span></td><td>精制碳水、高糖、高饱和脂肪、超加工</td></tr>
+        <tr><td>薯片 (Potato chips)</td><td><span class="score low">~12</span></td><td>超加工、高钠/脂肪、几乎无营养</td></tr>
+        <tr><td>饼干 (Cookies)</td><td><span class="score low">~12</span></td><td>精制碳水、高糖、高饱和脂肪、超加工</td></tr>
+        <tr><td>巧克力焦糖糖果</td><td><span class="score low">1</span></td><td>纯糖+脂肪+超加工、零营养</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════ 14. 酱汁 ═══════════════ -->
+  <section id="s14">
+    <div class="section-header"><span class="emoji"></span><h2>十四、酱汁与调味品</h2></div>
+    <table>
+      <thead><tr><th style="width:30%">食物</th><th style="width:10%">评分</th><th>原因</th></tr></thead>
+      <tbody>
+        <tr><td>番茄酱/意面酱(无糖)</td><td><span class="score mid">~60</span></td><td>番茄为主，但属加工食品</td></tr>
+        <tr><td>芥末 (Mustard)</td><td><span class="score mid">~55</span></td><td>基本无热量，但含盐和添加剂</td></tr>
+        <tr><td>沙拉酱(油醋,简单)</td><td><span class="score mid">~50</span></td><td>取决于油质和添加剂</td></tr>
+        <tr><td>酱油 (Soy sauce)</td><td><span class="score low">~30</span></td><td>高钠、加工</td></tr>
+        <tr><td>番茄酱 (Ketchup)</td><td><span class="score low">~25</span></td><td>高添加糖/高果糖玉米糖浆、加工</td></tr>
+        <tr><td>沙拉酱(奶油/商业)</td><td><span class="score low">~15</span></td><td>高饱和脂肪、超加工、添加剂</td></tr>
+        <tr><td>蛋黄酱 (Mayonnaise)</td><td><span class="score low">~12</span></td><td>高脂肪、超加工、添加剂</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════ 15. 变化原因 ═══════════════ -->
+  <section id="s15">
+    <div class="section-header"><span class="emoji"></span><h2>十五、Food Compass 1.0 → 2.0 五大更新及影响</h2></div>
+
+    <table>
+      <thead><tr><th style="width:3%">#</th><th style="width:25%">更新内容</th><th style="width:20%">1.0 做法</th><th style="width:20%">2.0 变化</th><th>影响</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="text-align:center;font-weight:800">1</td>
+          <td><strong>食品加工评分更细化</strong></td>
+          <td>只对超加工食品扣分</td>
+          <td>非超加工额外加分，超加工仍扣分</td>
+          <td>最低加工动物食品(海鲜/肉/蛋)受益上升；植物基替代品(超加工)下降</td>
+        </tr>
+        <tr>
+          <td style="text-align:center;font-weight:800">2</td>
+          <td><strong>添加糖纳入配料评分</strong></td>
+          <td>添加糖仅在添加剂中考虑</td>
+          <td>添加糖作为主要配料独立扣分</td>
+          <td>含糖麦片/谷物棒/风味酸奶/饮料全面下降</td>
+        </tr>
+        <tr>
+          <td style="text-align:center;font-weight:800">3</td>
+          <td><strong>膳食纤维权重提高</strong></td>
+          <td>已有纤维评分</td>
+          <td>进一步提高纤维正面权重</td>
+          <td>全谷物/豆类/蔬菜坚果进一步受益</td>
+        </tr>
+        <tr>
+          <td style="text-align:center;font-weight:800">4</td>
+          <td><strong>乳脂肪扣分降低</strong></td>
+          <td>乳脂肪按饱和脂肪同等扣分</td>
+          <td>反映最新证据(Guo 2017, Pimpin 2016)，乳脂影响中性</td>
+          <td>全脂乳制品评分略升，与脱脂版差距缩小</td>
+        </tr>
+        <tr>
+          <td style="text-align:center;font-weight:800">5</td>
+          <td><strong>人工添加剂数据补充</strong></td>
+          <td>有添加剂属性但无实际数据</td>
+          <td>新增人工甜味剂等数据收集</td>
+          <td>代糖饮料、高度加工食品进一步降分</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════ 16. 健康结局 ═══════════════ -->
+  <section id="s16">
+    <div class="section-header"><span class="emoji"></span><h2>十六、与健康结局的关联</h2><span class="avg">47,099 名美国成人 · 每提高 10.8 分</span></div>
+
+    <div class="info-box" style="margin-bottom:20px">
+      <h4>研究设计</h4>
+      <p style="font-size:0.9em">将 9,273 种食物的 FCS 扩展为个体饮食评分 (i.FCS)，在 47,099 名美国成年人中验证与多种健康结局的关联。美国成人饮食均分仅 <strong>36.6±10.8</strong>，反映整体饮食质量较差。i.FCS 与 HEI-2015（健康饮食指数）高度相关 (<strong>r=0.78</strong>)。</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin:20px 0">
+      <div style="background:var(--card);border-radius:10px;padding:18px;box-shadow:var(--shadow);border-top:3px solid var(--green)">
+        <h4 style="margin-bottom:12px;color:var(--green)">代谢指标改善</h4>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:0.9em">
+          <div><span style="color:var(--green);font-weight:700">-0.56 kg/m²</span> BMI 降低</div>
+          <div><span style="color:var(--green);font-weight:700">-0.55 mmHg</span> 收缩压</div>
+          <div><span style="color:var(--green);font-weight:700">-0.46 mmHg</span> 舒张压</div>
+          <div><span style="color:var(--green);font-weight:700">-1.49 mg/dL</span> LDL 坏胆固醇</div>
+          <div><span style="color:var(--green);font-weight:700">+1.61 mg/dL</span> HDL 好胆固醇</div>
+          <div><span style="color:var(--green);font-weight:700">-0.36 mg/dL</span> 空腹血糖</div>
+        </div>
+      </div>
+
+      <div style="background:var(--card);border-radius:10px;padding:18px;box-shadow:var(--shadow);border-top:3px solid var(--blue)">
+        <h4 style="margin-bottom:12px;color:var(--blue)">疾病风险降低</h4>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:0.9em">
+          <div><span style="color:var(--blue);font-weight:700">-14%</span> 代谢综合征风险</div>
+          <div><span style="color:var(--blue);font-weight:700">-10%</span> 肺病风险</div>
+          <div><span style="color:var(--blue);font-weight:700">-8%</span> 心血管疾病风险</div>
+          <div><span style="color:var(--blue);font-weight:700">-7%</span> 癌症风险</div>
+          <div><span style="color:var(--blue);font-weight:700">-8%</span> 全因死亡率</div>
+          <div><span style="color:var(--blue);font-weight:700">+22%</span> 最佳心血管代谢健康概率</div>
+        </div>
+      </div>
+
+      <div style="background:var(--card);border-radius:10px;padding:18px;box-shadow:var(--shadow);border-top:3px solid var(--red)">
+        <h4 style="margin-bottom:12px;color:var(--red)">死亡率对比</h4>
+        <p style="font-size:0.9em;margin-bottom:8px">最高五分位 vs 最低五分位</p>
+        <div style="font-size:2em;font-weight:800;color:var(--red)">-24%</div>
+        <p style="font-size:0.85em;color:var(--text-secondary)">全因死亡风险降低</p>
+        <p style="font-size:0.8em;color:var(--text-secondary);margin-top:8px">HR = 0.76 (95% CI: 0.68, 0.84)</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>来源：Barrett et al. (2024) <em>Nature Food</em>, 5, 911–915. DOI: 10.1038/s43016-024-01053-3</p>
+    <p style="margin-top:4px">Tufts University · Food is Medicine Institute &nbsp;|&nbsp; 完整 9,273 种食品数据见 Supplementary Table 5</p>
+  </footer>
+
+</div>
+
+</body>
+</html>

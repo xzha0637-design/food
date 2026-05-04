@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>综合加权食物评分系统 v2.0</title>
+<style>
+:root{--green:#2d8a56;--green-bg:#e8f5e9;--yellow:#e67e00;--yellow-bg:#fff8e1;--red:#c0392b;--red-bg:#ffebee;--blue:#1a5276;--blue-bg:#e3f2fd;--bg:#f8f9fa;--card:#fff;--text:#2c3e50;--text2:#5a6c7d;--border:#e0e4e8;--shadow:0 2px 8px rgba(0,0,0,.06)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.7;font-size:15px}
+.hero{background:linear-gradient(135deg,#1a3a2a,#1a5276,#1a3a2a);color:#fff;padding:50px 20px;text-align:center}
+.hero h1{font-size:2.2em;font-weight:800;margin-bottom:6px}
+.hero .sub{font-size:1.1em;opacity:.85}
+.container{max-width:1200px;margin:0 auto;padding:0 20px}
+.legend{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:-30px auto 30px;max-width:700px;position:relative;z-index:2}
+.legend-item{flex:1;min-width:140px;padding:16px 20px;border-radius:12px;background:var(--card);box-shadow:0 8px 30px rgba(0,0,0,.1);text-align:center}
+.legend-item .dot{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:6px;vertical-align:middle}
+section{margin:36px 0}
+.section-header{display:flex;align-items:baseline;gap:12px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--border)}
+.section-header h2{font-size:1.5em;font-weight:700}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);margin-bottom:10px}
+thead{background:#f1f3f5}
+th{padding:10px 12px;text-align:left;font-weight:700;font-size:.82em;color:var(--text2);white-space:nowrap}
+td{padding:8px 12px;border-top:1px solid var(--border);font-size:.94em}
+tr:hover td{background:#fafbfc}
+.score{display:inline-block;min-width:42px;padding:3px 10px;border-radius:20px;font-weight:800;font-size:.92em;text-align:center}
+.score.high{background:var(--green-bg);color:var(--green)}
+.score.mid{background:var(--yellow-bg);color:var(--yellow)}
+.score.low{background:var(--red-bg);color:var(--red)}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.75em;font-weight:600;margin:1px 2px}
+.tag.green{background:var(--green-bg);color:var(--green)}
+.tag.yellow{background:var(--yellow-bg);color:var(--yellow)}
+.tag.red{background:var(--red-bg);color:var(--red)}
+.tag.blue{background:var(--blue-bg);color:var(--blue)}
+.tag.gray{background:#f0f0f0;color:#666}
+.note-text{font-size:.82em;color:#e67e00;font-style:italic}
+.info-box{background:var(--blue-bg);border-left:4px solid var(--blue);padding:16px 20px;border-radius:8px;margin:16px 0;font-size:.9em}
+.rank-table-wrap{max-height:600px;overflow-y:auto;border-radius:10px;box-shadow:var(--shadow)}
+.rank-table-wrap thead{position:sticky;top:0;z-index:3}
+footer{text-align:center;padding:30px 20px;color:var(--text2);font-size:.82em;border-top:1px solid var(--border);margin-top:40px}
+.label-legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:16px 0;font-size:.85em}
+.label-legend span{display:inline-flex;align-items:center;gap:4px}
+/* 饮食建议 */
+.advice-hero{background:linear-gradient(135deg,#1a5276,#1a3a2a);color:#fff;padding:36px 28px;border-radius:14px;margin:24px 0;text-align:center}
+.advice-hero h2{font-size:1.6em;font-weight:800;margin-bottom:4px}
+.advice-hero p{opacity:.88;font-size:.95em}
+.advice-tabs{display:flex;gap:0;margin:20px 0 0}
+.advice-tab{flex:1;padding:14px 20px;text-align:center;font-weight:700;font-size:1.05em;cursor:pointer;border:none;border-radius:12px 12px 0 0;transition:.2s;color:var(--text2);background:#e9ecef}
+.advice-tab.active{background:var(--card);color:var(--text);box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+.advice-panel{display:none;background:var(--card);border-radius:0 0 14px 14px;padding:28px 32px;box-shadow:var(--shadow)}
+.advice-panel.active{display:block}
+.advice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px}
+.advice-card{background:#fafbfc;border-radius:12px;padding:20px 24px;border:1px solid var(--border)}
+.advice-card h4{font-size:1.05em;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.advice-card h4 .icon{font-size:1.3em}
+.advice-card ul{list-style:none;padding:0}
+.advice-card li{padding:5px 0;font-size:.92em;border-bottom:1px dotted #eee}
+.advice-card li:last-child{border-bottom:none}
+.advice-card .food-name{font-weight:600}
+.advice-card .food-score{float:right}
+.meal-plan{background:linear-gradient(135deg,#e8f5e9,#e3f2fd);border-radius:14px;padding:24px 28px;margin:20px 0}
+.meal-plan h4{font-weight:700;margin-bottom:12px;font-size:1.1em}
+.meal-plan table{box-shadow:none;margin:0}
+.meal-plan td{padding:8px 12px;font-size:.92em}
+.meal-plan .meal-time{font-weight:700;color:var(--blue);white-space:nowrap}
+.highlight-num{display:inline-block;background:var(--green);color:#fff;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;font-weight:800;font-size:.85em;margin-right:6px}
+.warn-box{background:#fff8e1;border-left:4px solid var(--yellow);padding:16px 20px;border-radius:8px;margin:16px 0;font-size:.92em}
+.tip-row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.tip-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:.82em;font-weight:600}
+.tip-chip.do{background:var(--green-bg);color:var(--green)}
+.tip-chip.dont{background:var(--red-bg);color:var(--red)}
+</style>
+</head>
+<body>
+<div class="hero">
+<h1>综合加权食物评分系统 v2.0</h1>
+<div class="sub">Food Compass 2.0 (43%) + Nutri-Score 2023 (37%) + Health Star Rating (20%) | 149种食物</div>
+</div>
+<div class="container">
+<div class="legend">
+<div class="legend-item"><span class="dot" style="background:var(--green)"></span>鼓励食用 ≥70</div>
+<div class="legend-item"><span class="dot" style="background:var(--yellow)"></span>适量食用 31-69</div>
+<div class="legend-item"><span class="dot" style="background:var(--red)"></span>尽量少吃 ≤30</div>
+</div>
+<div class="info-box">
+<strong>公式：</strong>加权分 = (FC2×43 + NS×37 + HSR×20 + 50) // 100 &nbsp;|&nbsp;
+<strong>NS：</strong>A=100 B=75 C=50 D=25 E=0 &nbsp;|&nbsp;
+<strong>HSR：</strong>5★=100 4.5★=90 4★=80 3.5★=70 3★=60 2.5★=50 2★=40 1.5★=30 1★=20 0.5★=10
+<br><strong>标签说明：</strong>
+<span class="tag green">NOVA G1-G2</span>未加工/轻度加工
+<span class="tag yellow">G3</span>中度加工
+<span class="tag red">G4</span>超加工 &nbsp;|&nbsp;
+<span class="tag blue">CHEI CH+</span>推荐
+<span class="tag red">CH-</span>限制 &nbsp;|&nbsp;
+<span class="tag green">GDQS健</span>健康
+<span class="tag yellow">中</span>中等
+<span class="tag red">不健康</span>不健康
+</div>
+
+<!-- ========== 饮食建议 ========== -->
+<div class="advice-hero">
+<h2>基于综合评分的饮食建议</h2>
+<p>以149种食物评分为基础，结合中国居民膳食指南(2022)与运动营养学证据</p>
+</div>
+
+<div class="advice-tabs">
+<button class="advice-tab active" onclick="switchTab('general')">普通人群</button>
+<button class="advice-tab" onclick="switchTab('fitness')">健身人群</button>
+</div>
+
+<!-- === 普通人群 === -->
+<div class="advice-panel active" id="tab-general">
+
+<h3 style="margin-bottom:6px;color:var(--green)">每日饮食核心原则</h3>
+<p style="font-size:.92em;color:var(--text2);margin-bottom:18px">以<span style="color:var(--green);font-weight:700">鼓励食用(≥70分)</span>食物为日常基础，<span style="color:var(--yellow);font-weight:700">适量食用(31-69分)</span>食物合理搭配，<span style="color:var(--red);font-weight:700">尽量少吃(≤30分)</span>食物严格限制。</p>
+
+<div class="advice-grid">
+<div class="advice-card">
+<h4><span class="icon">🌾</span>主食 — 全谷物优先</h4>
+<ul>
+<li><span class="food-name">藜麦</span> <span class="food-score"><span class="score high">95</span></span></li>
+<li><span class="food-name">钢切燕麦</span> <span class="food-score"><span class="score high">94</span></span></li>
+<li><span class="food-name">荞麦</span> <span class="food-score"><span class="score high">91</span></span></li>
+<li><span class="food-name">糙米</span> <span class="food-score"><span class="score high">74</span></span></li>
+<li><span class="food-name">全麦面包</span> <span class="food-score"><span class="score mid">68</span></span></li>
+<li style="color:var(--text2)"><span class="food-name">白米饭</span> <span class="food-score"><span class="score mid">34</span></span> — 搭配粗粮</li>
+<li style="color:var(--red)"><span class="food-name">方便面</span> <span class="food-score"><span class="score low">2</span></span> — 尽量避免</li>
+</ul>
+</div>
+<div class="advice-card">
+<h4><span class="icon">🥬</span>蔬菜 — 绿叶+十字花科为主</h4>
+<ul>
+<li><span class="food-name">菠菜/羽衣甘蓝</span> <span class="food-score"><span class="score high">100</span></span></li>
+<li><span class="food-name">西兰花</span> <span class="food-score"><span class="score high">100</span></span></li>
+<li><span class="food-name">菜花/卷心菜</span> <span class="food-score"><span class="score high">97-98</span></span></li>
+<li><span class="food-name">番茄/红椒</span> <span class="food-score"><span class="score high">94</span></span></li>
+<li><span class="food-name">胡萝卜/南瓜</span> <span class="food-score"><span class="score high">91</span></span></li>
+<li><span class="food-name">红薯</span> <span class="food-score"><span class="score high">88</span></span></li>
+</ul>
+</div>
+<div class="advice-card">
+<h4><span class="icon">🫘</span>蛋白质 — 鱼豆禽蛋,红肉适量</h4>
+<ul>
+<li><span class="food-name">三文鱼/沙丁鱼/鲭鱼</span> <span class="food-score"><span class="score high">95-96</span></span></li>
+<li><span class="food-name">扁豆/鹰嘴豆/黑豆</span> <span class="food-score"><span class="score high">93-95</span></span></li>
+<li><span class="food-name">豆腐</span> <span class="food-score"><span class="score high">83</span></span></li>
+<li><span class="food-name">蛋白/水煮蛋</span> <span class="food-score"><span class="score high">72-85</span></span></li>
+<li><span class="food-name">鸡胸肉(烤去皮)</span> <span class="food-score"><span class="score mid">68</span></span></li>
+<li style="color:var(--text2)"><span class="food-name">瘦牛肉/瘦猪肉</span> <span class="food-score"><span class="score mid">38-42</span></span> — 限量</li>
+<li style="color:var(--red)"><span class="food-name">火腿/培根/香肠</span> <span class="food-score"><span class="score low">5-15</span></span> — 避免</li>
+</ul>
+</div>
+<div class="advice-card">
+<h4><span class="icon">🍎</span>水果 — 浆果柑橘优先</h4>
+<ul>
+<li><span class="food-name">蓝莓/草莓/覆盆子</span> <span class="food-score"><span class="score high">100</span></span></li>
+<li><span class="food-name">橙子/葡萄柚</span> <span class="food-score"><span class="score high">97-98</span></span></li>
+<li><span class="food-name">苹果/梨</span> <span class="food-score"><span class="score high">92-94</span></span></li>
+<li><span class="food-name">香蕉</span> <span class="food-score"><span class="score high">87</span></span></li>
+<li><span class="food-name">西梅干/无花果干</span> <span class="food-score"><span class="score high">75-76</span></span></li>
+<li style="color:var(--yellow)"><span class="food-name">椰枣</span> <span class="food-score"><span class="score mid">62</span></span> — 高糖少量</li>
+</ul>
+</div>
+<div class="advice-card">
+<h4><span class="icon">🥛</span>乳制品 — 低脂/脱脂优先</h4>
+<ul>
+<li><span class="food-name">低脂希腊酸奶(原味)</span> <span class="food-score"><span class="score high">90</span></span></li>
+<li><span class="food-name">脱脂牛奶</span> <span class="food-score"><span class="score high">78</span></span></li>
+<li><span class="food-name">低脂牛奶(1%)</span> <span class="food-score"><span class="score high">76</span></span></li>
+<li><span class="food-name">全脂酸奶(原味)</span> <span class="food-score"><span class="score high">74</span></span></li>
+<li style="color:var(--yellow)"><span class="food-name">全脂牛奶</span> <span class="food-score"><span class="score mid">57</span></span></li>
+<li style="color:var(--red)"><span class="food-name">奶油奶酪/黄油</span> <span class="food-score"><span class="score low">5-8</span></span> — 避免</li>
+</ul>
+</div>
+<div class="advice-card">
+<h4><span class="icon">🥜</span>坚果种子 — 每日一小把(~30g)</h4>
+<ul>
+<li><span class="food-name">奇亚籽/亚麻籽</span> <span class="food-score"><span class="score high">99-100</span></span></li>
+<li><span class="food-name">核桃</span> <span class="food-score"><span class="score high">99</span></span></li>
+<li><span class="food-name">南瓜籽</span> <span class="food-score"><span class="score high">94</span></span></li>
+<li><span class="food-name">杏仁/开心果</span> <span class="food-score"><span class="score high">84-85</span></span></li>
+<li><span class="food-name">葵花籽/芝麻</span> <span class="food-score"><span class="score high">81-82</span></span></li>
+<li><span class="food-name">腰果</span> <span class="food-score"><span class="score high">71</span></span></li>
+</ul>
+</div>
+</div>
+
+<div class="meal-plan">
+<h4>一日参考餐盘 (约2000 kcal)</h4>
+<table>
+<tr><td class="meal-time">早餐 (~7:30)</td><td>钢切燕麦粥(40g) + 蓝莓(50g) + 核桃(15g) + 水煮蛋1个 + 脱脂牛奶200ml</td><td style="white-space:nowrap">均分 ≥70</td></tr>
+<tr><td class="meal-time">午餐 (~12:00)</td><td>藜麦饭(藜麦30g+糙米40g) + 烤三文鱼(100g) + 西兰花炒蒜蓉(150g) + 番茄生菜沙拉</td><td style="white-space:nowrap">均分 85-100</td></tr>
+<tr><td class="meal-time">加餐 (~15:30)</td><td>苹果1个 + 低脂希腊酸奶(100g) + 南瓜籽(10g)</td><td style="white-space:nowrap">均分 90-94</td></tr>
+<tr><td class="meal-time">晚餐 (~18:30)</td><td>糙米饭(60g) + 豆腐炖菌菇(豆腐100g) + 清炒菠菜(200g) + 胡萝卜丝</td><td style="white-space:nowrap">均分 83-100</td></tr>
+</table>
+</div>
+
+<div class="warn-box">
+<strong>特别注意：</strong>
+<span class="tip-chip dont">含糖汽水(14分)</span>
+<span class="tip-chip dont">可乐(2分)</span>
+<span class="tip-chip dont">方便面(2分)</span>
+<span class="tip-chip dont">加工肉(5-15分)</span>
+<span class="tip-chip dont">蛋糕/饼干/薯片(8-16分)</span>
+这些超加工食品在日常饮食中应严格限制，每周不超过1-2次，每次少量。用100%纯果蔬汁(57分)替代含糖饮料，用空气爆米花(74分)替代薯片，用黑巧克力≥70%(41分)替代糖果。
+</div>
+
+</div>
+
+<!-- === 健身人群 === -->
+<div class="advice-panel" id="tab-fitness">
+
+<h3 style="margin-bottom:6px;color:var(--blue)">健身人群营养策略</h3>
+<p style="font-size:.92em;color:var(--text2);margin-bottom:18px">在普通人群基础上，根据训练目标和训练周期调整宏量营养素配比和进餐时机。</p>
+
+<div class="advice-grid">
+<div class="advice-card">
+<h4><span class="icon">💪</span>高蛋白优选 (按评分排序)</h4>
+<ul>
+<li><span class="food-name">沙丁鱼(新鲜)</span> <span class="food-score"><span class="score high">96</span></span> — 蛋白+Omega-3</li>
+<li><span class="food-name">三文鱼(烤)</span> <span class="food-score"><span class="score high">95</span></span> — 优质脂肪+蛋白</li>
+<li><span class="food-name">扁豆</span> <span class="food-score"><span class="score high">95</span></span> — 植物蛋白+纤维</li>
+<li><span class="food-name">鹰嘴豆/黑豆</span> <span class="food-score"><span class="score high">93-94</span></span></li>
+<li><span class="food-name">低脂希腊酸奶</span> <span class="food-score"><span class="score high">90</span></span> — 酪蛋白,睡前佳选</li>
+<li><span class="food-name">鸡胸肉(烤去皮)</span> <span class="food-score"><span class="score mid">68</span></span> — 经典低脂高蛋白</li>
+<li><span class="food-name">豆腐</span> <span class="food-score"><span class="score high">83</span></span> — 植物蛋白,低脂</li>
+<li><span class="food-name">蛋白(蛋清)</span> <span class="food-score"><span class="score high">85</span></span> — 纯蛋白,几乎零脂</li>
+</ul>
+</div>
+<div class="advice-card">
+<h4><span class="icon">⚡</span>训练前 (运动前2-3小时)</h4>
+<ul>
+<li><span class="food-name">钢切燕麦</span> <span class="food-score"><span class="score high">94</span></span> — 缓释碳水,持久供能</li>
+<li><span class="food-name">全麦面包</span> <span class="food-score"><span class="score mid">68</span></span> + 香蕉(87分)</li>
+<li><span class="food-name">红薯</span> <span class="food-score"><span class="score high">88</span></span> — 复合碳水+维生素A</li>
+<li><span class="food-name">荞麦</span> <span class="food-score"><span class="score high">91</span></span> — 低GI,稳定血糖</li>
+</ul>
+<p style="font-size:.82em;color:var(--text2);margin-top:8px">训练前30-60分钟可补充快碳：香蕉(87分)或葡萄干(74分)</p>
+</div>
+<div class="advice-card">
+<h4><span class="icon">🔄</span>训练后 (运动后30-60分钟)</h4>
+<ul>
+<li><span class="food-name">低脂希腊酸奶</span> <span class="food-score"><span class="score high">90</span></span> + 蓝莓(100分) + 燕麦</li>
+<li><span class="food-name">蛋白(蛋清)</span> <span class="food-score"><span class="score high">85</span></span> — 快速吸收蛋白</li>
+<li><span class="food-name">脱脂牛奶</span> <span class="food-score"><span class="score high">78</span></span> — 乳清+酪蛋白</li>
+<li><span class="food-name">香蕉</span> <span class="food-score"><span class="score high">87</span></span> — 快速补糖,恢复糖原</li>
+<li><span class="food-name">藜麦</span> <span class="food-score"><span class="score high">95</span></span> + 鸡胸肉(68分) — 完整蛋白+碳水</li>
+</ul>
+<p style="font-size:.82em;color:var(--text2);margin-top:8px">蛋白粉补充剂不在本评分系统内，建议选择乳清蛋白或豌豆蛋白，搭配天然食物。</p>
+</div>
+<div class="advice-card">
+<h4><span class="icon">🌙</span>睡前营养</h4>
+<ul>
+<li><span class="food-name">低脂乡村奶酪</span> <span class="food-score"><span class="score mid">58</span></span> — 缓释酪蛋白</li>
+<li><span class="food-name">全脂酸奶(原味)</span> <span class="food-score"><span class="score high">74</span></span> — 酪蛋白来源</li>
+<li><span class="food-name">杏仁</span> <span class="food-score"><span class="score high">85</span></span> — 健康脂肪+镁</li>
+<li><span class="food-name">核桃</span> <span class="food-score"><span class="score high">99</span></span> — Omega-3,助眠</li>
+</ul>
+</div>
+</div>
+
+<div class="meal-plan">
+<h4>增肌期一日参考餐盘 (约2600 kcal, 蛋白质 ~160g)</h4>
+<table>
+<tr><td class="meal-time">早餐 (7:00)</td><td>钢切燕麦(60g) + 蛋白3个+全蛋1个 + 蓝莓(80g) + 核桃(20g) + 全脂牛奶300ml</td></tr>
+<tr><td class="meal-time">午餐 (12:00)</td><td>藜麦饭(80g) + 烤鸡胸肉(180g) + 西兰花(200g) + 红薯(100g) + 橄榄油(10ml)</td></tr>
+<tr><td class="meal-time">训练前 (15:00)</td><td>全麦面包2片 + 香蕉1根 + 杏仁(20g)</td></tr>
+<tr><td class="meal-time">训练 (16:00-17:30)</td><td>充足饮水,训练中可补充香蕉或葡萄干</td></tr>
+<tr><td class="meal-time">训练后 (17:45)</td><td>低脂希腊酸奶(200g) + 蓝莓(50g) + 钢切燕麦(30g)</td></tr>
+<tr><td class="meal-time">晚餐 (19:00)</td><td>三文鱼(150g) + 糙米饭(60g) + 菠菜(200g) + 番茄沙拉</td></tr>
+<tr><td class="meal-time">睡前 (21:30)</td><td>低脂乡村奶酪(100g) + 核桃(15g)</td></tr>
+</table>
+</div>
+
+<div class="meal-plan">
+<h4>减脂期一日参考餐盘 (约1800 kcal, 蛋白质 ~150g)</h4>
+<table>
+<tr><td class="meal-time">早餐 (7:30)</td><td>钢切燕麦(40g) + 蛋白4个 + 草莓(80g) + 奇亚籽(10g) + 脱脂牛奶200ml</td></tr>
+<tr><td class="meal-time">午餐 (12:00)</td><td>烤鸡胸肉(200g) + 藜麦(50g) + 西兰花+芦笋(250g) + 橄榄油(5ml)</td></tr>
+<tr><td class="meal-time">加餐 (15:30)</td><td>低脂希腊酸奶(150g) + 蓝莓(50g)</td></tr>
+<tr><td class="meal-time">训练 (17:00-18:00)</td><td>训练前: 黑咖啡(无糖,96分); 训练后: 蛋白2个</td></tr>
+<tr><td class="meal-time">晚餐 (18:45)</td><td>沙丁鱼(120g) + 豆腐(100g) + 菠菜+卷心菜(250g) + 菜籽油(5ml)</td></tr>
+<tr><td class="meal-time">睡前 (21:00)</td><td>脱脂牛奶150ml</td></tr>
+</table>
+</div>
+
+<div class="warn-box">
+<strong>健身人群关键提示：</strong><br>
+1. <strong>蛋白质摄入：</strong>增肌期 1.6-2.2g/kg体重，减脂期 1.8-2.4g/kg体重。优先从鱼类(83-96分)、豆类(83-95分)、蛋清(85分)、低脂乳制品(76-90分)获取，减少红肉依赖。<br>
+2. <strong>碳水循环：</strong>训练日碳水以全谷物(74-95分)和薯类(57-88分)为主，休息日适当降低碳水比例。绝对避免精制碳水(米饭34分、白面包16分)作为主要来源。<br>
+3. <strong>脂肪选择：</strong>橄榄油(75分)、鳄梨油(74分)、坚果(64-100分)为优质脂肪来源；避免黄油(5分)、椰子油(19分)、棕榈油(11分)。<br>
+4. <strong>水分补充：</strong>每日饮水2.5-3.5L(训练日)，水评分100分，无糖黑咖啡/绿茶评分96分可作为训练前补充。
+</div>
+
+</div>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.advice-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.advice-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector('[onclick="switchTab(\'' + tab + '\')"]').classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+</script>
+<!-- ========== 饮食建议 结束 ========== -->
+
+<section><div class="section-header"><h2>浆果</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>蓝莓/黑莓/草莓/覆盆子</td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="score high">100</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>蔓越莓</td><td>95</td><td>A=100</td><td>5星=100</td><td><span class="score high">98</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>柑橘</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>橙子</td><td>95</td><td>A=100</td><td>5星=100</td><td><span class="score high">98</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>葡萄柚</td><td>93</td><td>A=100</td><td>5星=100</td><td><span class="score high">97</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>柠檬/青柠</td><td>92</td><td>A=100</td><td>5星=100</td><td><span class="score high">97</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>一般水果</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>苹果</td><td>85</td><td>A=100</td><td>5星=100</td><td><span class="score high">94</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>梨</td><td>82</td><td>A=100</td><td>5星=100</td><td><span class="score high">92</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>香蕉</td><td>70</td><td>A=100</td><td>5星=100</td><td><span class="score high">87</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>葡萄</td><td>68</td><td>A=100</td><td>5星=100</td><td><span class="score high">86</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>芒果</td><td>65</td><td>A=100</td><td>5星=100</td><td><span class="score high">85</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>菠萝</td><td>63</td><td>A=100</td><td>5星=100</td><td><span class="score high">84</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>水果干</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>西梅干</td><td>75</td><td>B=75</td><td>4星=80</td><td><span class="score high">76</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>无花果干</td><td>72</td><td>B=75</td><td>4星=80</td><td><span class="score high">75</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>葡萄干</td><td>70</td><td>B=75</td><td>4星=80</td><td><span class="score high">74</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>椰枣</td><td>68</td><td>C=50</td><td>3.5星=70</td><td><span class="score mid">62</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td><span class="note-text">高糖</span></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>果蔬汁</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>100%纯果蔬汁</td><td>66</td><td>C=50</td><td>2.5星=50</td><td><span class="score mid">57</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>含糖果汁饮料</td><td>30</td><td>D=25</td><td>1.5星=30</td><td><span class="score low">28</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>绿叶蔬菜</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>菠菜</td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="score high">100</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>羽衣甘蓝</td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="score high">100</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>瑞士甜菜/芝麻菜</td><td>98</td><td>A=100</td><td>5星=100</td><td><span class="score high">99</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>生菜</td><td>90</td><td>A=100</td><td>5星=100</td><td><span class="score high">96</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>十字花科</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>西兰花</td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="score high">100</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>菜花</td><td>95</td><td>A=100</td><td>5星=100</td><td><span class="score high">98</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>卷心菜</td><td>92</td><td>A=100</td><td>5星=100</td><td><span class="score high">97</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>芦笋</td><td>90</td><td>A=100</td><td>5星=100</td><td><span class="score high">96</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>红橙蔬菜</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>番茄</td><td>85</td><td>A=100</td><td>5星=100</td><td><span class="score high">94</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>红椒</td><td>85</td><td>A=100</td><td>5星=100</td><td><span class="score high">94</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>胡萝卜</td><td>80</td><td>A=100</td><td>5星=100</td><td><span class="score high">91</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>南瓜</td><td>78</td><td>A=100</td><td>5星=100</td><td><span class="score high">91</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>红薯</td><td>72</td><td>A=100</td><td>5星=100</td><td><span class="score high">88</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>淀粉蔬菜</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>豌豆</td><td>65</td><td>A=100</td><td>5星=100</td><td><span class="score high">85</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>土豆(蒸/烤无油)</td><td>58</td><td>C=50</td><td>3.5星=70</td><td><span class="score mid">57</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>玉米(整粒)</td><td>55</td><td>B=75</td><td>4星=80</td><td><span class="score mid">67</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>山药</td><td>58</td><td>C=50</td><td>3.5星=70</td><td><span class="score mid">57</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>炸薯条</td><td>15</td><td>D=25</td><td>1星=20</td><td><span class="score low">20</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>腌制蔬菜</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>泡菜/韩式泡菜</td><td>56</td><td>C=50</td><td>2.5星=50</td><td><span class="score mid">53</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>腌黄瓜</td><td>55</td><td>C=50</td><td>2.5星=50</td><td><span class="score mid">52</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>中国酸菜(估算)</td><td>50</td><td>C=50</td><td>2.5星=50</td><td><span class="score mid">50</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>榨菜/酱菜(估算)</td><td>30</td><td>D=25</td><td>1.5星=30</td><td><span class="score low">28</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>豆类</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>扁豆</td><td>92</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">95</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>鹰嘴豆</td><td>90</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">94</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>黑豆</td><td>88</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">93</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>毛豆/枝豆</td><td>88</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">93</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>芸豆</td><td>86</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">92</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>天贝</td><td>85</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">92</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>豆腐</td><td>75</td><td>A=100</td><td>3.5星=70</td><td><span class="score high">83</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>花生</td><td>82</td><td>B=75</td><td>4星=80</td><td><span class="score high">79</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td><span class="note-text">实为豆类</span></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>坚果</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>奇亚籽</td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="score high">100</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>核桃</td><td>98</td><td>A=100</td><td>5星=100</td><td><span class="score high">99</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>亚麻籽</td><td>98</td><td>A=100</td><td>5星=100</td><td><span class="score high">99</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>南瓜籽</td><td>90</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">94</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>杏仁</td><td>92</td><td>B=75</td><td>4.5星=90</td><td><span class="score high">85</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>开心果</td><td>88</td><td>B=75</td><td>4.5星=90</td><td><span class="score high">84</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>葵花籽</td><td>88</td><td>B=75</td><td>4星=80</td><td><span class="score high">82</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>芝麻</td><td>87</td><td>B=75</td><td>4星=80</td><td><span class="score high">81</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>腰果</td><td>85</td><td>C=50</td><td>4星=80</td><td><span class="score high">71</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>夏威夷果</td><td>78</td><td>C=50</td><td>3星=60</td><td><span class="score mid">64</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>全谷物</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>藜麦</td><td>89</td><td>A=100</td><td>5星=100</td><td><span class="score high">95</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>钢切燕麦</td><td>85</td><td>A=100</td><td>5星=100</td><td><span class="score high">94</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>荞麦</td><td>80</td><td>A=100</td><td>5星=100</td><td><span class="score high">91</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>小米</td><td>75</td><td>A=100</td><td>5星=100</td><td><span class="score high">89</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>纯即食燕麦片(原味)</td><td>75</td><td>B=75</td><td>4星=80</td><td><span class="score high">76</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>糙米</td><td>70</td><td>B=75</td><td>4星=80</td><td><span class="score high">74</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>全麦面包</td><td>60</td><td>B=75</td><td>3.5星=70</td><td><span class="score mid">68</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>精制谷物</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>精制意面/面条</td><td>45</td><td>B=75</td><td>2.5星=50</td><td><span class="score mid">57</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>白米饭</td><td>23</td><td>C=50</td><td>1.5星=30</td><td><span class="score mid">34</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>米粉</td><td>12</td><td>C=50</td><td>1星=20</td><td><span class="score low">28</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>白面包</td><td>6</td><td>D=25</td><td>1星=20</td><td><span class="score low">16</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>方便面</td><td>1</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">2</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>早餐麦片</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>纯麦丝(无糖全谷物)</td><td>65</td><td>A=100</td><td>5星=100</td><td><span class="score high">85</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>调味即食燕麦</td><td>53</td><td>C=50</td><td>2.5星=50</td><td><span class="score mid">51</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>Froot Loops甜麦片</td><td>29</td><td>D=25</td><td>1.5星=30</td><td><span class="score low">28</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>含糖儿童麦片</td><td>25</td><td>D=25</td><td>1星=20</td><td><span class="score low">24</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>禽肉</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>火鸡胸肉</td><td>62</td><td>B=75</td><td>4星=80</td><td><span class="score high">70</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>鸡胸肉(烤去皮)</td><td>57</td><td>B=75</td><td>4星=80</td><td><span class="score mid">68</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>鸡腿肉(烤带皮)</td><td>54</td><td>B=75</td><td>3.5星=70</td><td><span class="score mid">65</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>鸭肉</td><td>50</td><td>B=75</td><td>3.5星=70</td><td><span class="score mid">63</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>红肉</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>鹿肉</td><td>55</td><td>B=75</td><td>3.5星=70</td><td><span class="score mid">65</span></td><td><span class="tag green">G1</span></td><td><span class="tag red">CH-</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>牛肝</td><td>55</td><td>D=25</td><td>2.5星=50</td><td><span class="score mid">43</span></td><td><span class="tag green">G1</span></td><td><span class="tag red">CH-</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>瘦牛肉(烤)</td><td>48</td><td>D=25</td><td>3星=60</td><td><span class="score mid">42</span></td><td><span class="tag green">G1</span></td><td><span class="tag red">CH-</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>瘦猪肉</td><td>44</td><td>D=25</td><td>2.5星=50</td><td><span class="score mid">38</span></td><td><span class="tag green">G1</span></td><td><span class="tag red">CH-</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>加工肉</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>培根</td><td>26</td><td>E=0</td><td>1星=20</td><td><span class="score low">15</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>火腿</td><td>6</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">5</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>热狗/香肠</td><td>6</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">5</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>萨拉米/腊肠</td><td>8</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">5</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>中国腊肉/腊肠(估算)</td><td>10</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">6</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>鱼类</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>沙丁鱼(新鲜)</td><td>95</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">96</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>三文鱼(烤)</td><td>93</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">95</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>鲭鱼</td><td>92</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">95</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>鳕鱼</td><td>80</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">89</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>金枪鱼(新鲜)</td><td>78</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">89</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>罗非鱼</td><td>70</td><td>A=100</td><td>4星=80</td><td><span class="score high">83</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>沙丁鱼(罐装水浸)</td><td>88</td><td>B=75</td><td>3星=60</td><td><span class="score high">78</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>贝类</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>蛤蜊/牡蛎</td><td>88</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">93</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>贻贝</td><td>85</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">92</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>扇贝</td><td>80</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">89</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>虾</td><td>78</td><td>A=100</td><td>4星=80</td><td><span class="score high">87</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>龙虾</td><td>75</td><td>A=100</td><td>4星=80</td><td><span class="score high">85</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>蛋类</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>蛋白(蛋清)</td><td>70</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">85</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>水煮蛋/蒸蛋</td><td>65</td><td>B=75</td><td>4星=80</td><td><span class="score high">72</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>全蛋无油煎</td><td>62</td><td>B=75</td><td>4星=80</td><td><span class="score high">70</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>炒蛋</td><td>58</td><td>B=75</td><td>3.5星=70</td><td><span class="score mid">67</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>咸鸭蛋(估算)</td><td>40</td><td>D=25</td><td>1.5星=30</td><td><span class="score mid">32</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>牛奶</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>脱脂牛奶</td><td>75</td><td>B=75</td><td>4.5星=90</td><td><span class="score high">78</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>低脂牛奶(1%)</td><td>70</td><td>B=75</td><td>4.5星=90</td><td><span class="score high">76</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>全脂牛奶</td><td>58</td><td>C=50</td><td>3.5星=70</td><td><span class="score mid">57</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>巧克力牛奶</td><td>35</td><td>D=25</td><td>1.5星=30</td><td><span class="score low">30</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>酸奶</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>低脂希腊酸奶(原味)</td><td>82</td><td>A=100</td><td>4.5星=90</td><td><span class="score high">90</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>低脂水果酸奶</td><td>87</td><td>C=50</td><td>2.5星=50</td><td><span class="score mid">66</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td><span class="note-text">FC2采用,无糖更佳</span></td></tr>
+<tr><td>全脂酸奶(原味)</td><td>70</td><td>B=75</td><td>4星=80</td><td><span class="score high">74</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>冻酸奶</td><td>23</td><td>D=25</td><td>1星=20</td><td><span class="score low">23</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>奶酪</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>低脂乡村奶酪</td><td>60</td><td>C=50</td><td>3.5星=70</td><td><span class="score mid">58</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>马苏里拉奶酪</td><td>40</td><td>D=25</td><td>2星=40</td><td><span class="score mid">34</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>切达奶酪</td><td>30</td><td>D=25</td><td>1.5星=30</td><td><span class="score low">28</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>奶油奶酪</td><td>15</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">8</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>植物油</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>橄榄油</td><td>81</td><td>B=75</td><td>3星=60</td><td><span class="score high">75</span></td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>鳄梨油</td><td>80</td><td>B=75</td><td>3星=60</td><td><span class="score high">74</span></td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>菜籽油</td><td>72</td><td>B=75</td><td>3星=60</td><td><span class="score high">71</span></td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>大豆油</td><td>68</td><td>C=50</td><td>2.5星=50</td><td><span class="score mid">58</span></td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>葵花籽油</td><td>65</td><td>C=50</td><td>2.5星=50</td><td><span class="score mid">56</span></td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>椰子油</td><td>35</td><td>E=0</td><td>1星=20</td><td><span class="score low">19</span></td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>棕榈油</td><td>20</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">11</span></td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>动物脂肪</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>猪油</td><td>16</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">9</span></td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>奶油</td><td>12</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">7</span></td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>黄油</td><td>6</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">5</span></td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>饮料</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>水</td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="score high">100</span></td><td><span class="tag green">G1</span></td><td><span class="tag gray">-</span></td><td><span class="tag gray">-</span></td><td></td></tr>
+<tr><td>无糖黑咖啡/绿茶</td><td>90</td><td>A=100</td><td>5星=100</td><td><span class="score high">96</span></td><td><span class="tag green">G1</span></td><td><span class="tag gray">-</span></td><td><span class="tag gray">-</span></td><td></td></tr>
+<tr><td>代糖饮料</td><td>20</td><td>C=50</td><td>1星=20</td><td><span class="score mid">31</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>运动饮料</td><td>22</td><td>D=25</td><td>1星=20</td><td><span class="score low">23</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>含糖汽水</td><td>28</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">14</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>可乐</td><td>1</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">2</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>植物基</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>豆奶/豆浆(无糖)</td><td>55</td><td>B=75</td><td>3星=60</td><td><span class="score mid">63</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>燕麦奶</td><td>42</td><td>C=50</td><td>2星=40</td><td><span class="score mid">45</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag gray">-</span></td><td></td></tr>
+<tr><td>植物肉替代品</td><td>35</td><td>D=25</td><td>1.5星=30</td><td><span class="score low">30</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>植物基奶酪替代品</td><td>30</td><td>D=25</td><td>1星=20</td><td><span class="score low">26</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag gray">-</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>零食</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>空气爆米花(无油)</td><td>65</td><td>B=75</td><td>4.5星=90</td><td><span class="score high">74</span></td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>黑巧克力(>=70%)</td><td>55</td><td>D=25</td><td>2星=40</td><td><span class="score mid">41</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td><span class="note-text">FC2多酚,≤30g/d</span></td></tr>
+<tr><td>微波黄油爆米花</td><td>20</td><td>D=25</td><td>1星=20</td><td><span class="score low">22</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>冰淇淋</td><td>18</td><td>D=25</td><td>0.5星=10</td><td><span class="score low">19</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>薯片</td><td>12</td><td>D=25</td><td>0.5星=10</td><td><span class="score low">16</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>饼干</td><td>12</td><td>D=25</td><td>0.5星=10</td><td><span class="score low">16</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>蛋糕</td><td>15</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">8</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>巧克力焦糖糖果</td><td>1</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">2</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>酱汁</h2></div>
+<table><thead><tr><th>食物</th><th>FC2</th><th>NS</th><th>HSR</th><th>加权</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>芥末</td><td>55</td><td>B=75</td><td>3.5星=70</td><td><span class="score mid">65</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>意面酱(无糖)</td><td>60</td><td>B=75</td><td>3星=60</td><td><span class="score mid">66</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>酱油</td><td>30</td><td>D=25</td><td>1星=20</td><td><span class="score low">26</span></td><td><span class="tag yellow">G3</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>番茄酱(Ketchup)</td><td>25</td><td>D=25</td><td>1.5星=30</td><td><span class="score low">26</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>沙拉酱(奶油型)</td><td>15</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">8</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>蛋黄酱</td><td>12</td><td>E=0</td><td>0.5星=10</td><td><span class="score low">7</span></td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></section>
+<section><div class="section-header"><h2>完整排名 (149种食物)</h2></div>
+<div class="rank-table-wrap"><table><thead><tr><th>#</th><th>食物</th><th>加权</th><th>FC2</th><th>NS</th><th>HSR</th><th>NOVA</th><th>CHEI</th><th>GDQS</th><th>备注</th></tr></thead><tbody>
+<tr><td>1</td><td>蓝莓/黑莓/草莓/覆盆子</td><td><span class="score high">100</span></td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>2</td><td>菠菜</td><td><span class="score high">100</span></td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>3</td><td>羽衣甘蓝</td><td><span class="score high">100</span></td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>4</td><td>西兰花</td><td><span class="score high">100</span></td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>5</td><td>奇亚籽</td><td><span class="score high">100</span></td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>6</td><td>水</td><td><span class="score high">100</span></td><td>100</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag gray">-</span></td><td><span class="tag gray">-</span></td><td></td></tr>
+<tr><td>7</td><td>瑞士甜菜/芝麻菜</td><td><span class="score high">99</span></td><td>98</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>8</td><td>核桃</td><td><span class="score high">99</span></td><td>98</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>9</td><td>亚麻籽</td><td><span class="score high">99</span></td><td>98</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>10</td><td>蔓越莓</td><td><span class="score high">98</span></td><td>95</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>11</td><td>橙子</td><td><span class="score high">98</span></td><td>95</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>12</td><td>菜花</td><td><span class="score high">98</span></td><td>95</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>13</td><td>葡萄柚</td><td><span class="score high">97</span></td><td>93</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>14</td><td>柠檬/青柠</td><td><span class="score high">97</span></td><td>92</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>15</td><td>卷心菜</td><td><span class="score high">97</span></td><td>92</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>16</td><td>生菜</td><td><span class="score high">96</span></td><td>90</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>17</td><td>芦笋</td><td><span class="score high">96</span></td><td>90</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>18</td><td>沙丁鱼(新鲜)</td><td><span class="score high">96</span></td><td>95</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>19</td><td>无糖黑咖啡/绿茶</td><td><span class="score high">96</span></td><td>90</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag gray">-</span></td><td><span class="tag gray">-</span></td><td></td></tr>
+<tr><td>20</td><td>扁豆</td><td><span class="score high">95</span></td><td>92</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>21</td><td>藜麦</td><td><span class="score high">95</span></td><td>89</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>22</td><td>三文鱼(烤)</td><td><span class="score high">95</span></td><td>93</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>23</td><td>鲭鱼</td><td><span class="score high">95</span></td><td>92</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>24</td><td>苹果</td><td><span class="score high">94</span></td><td>85</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>25</td><td>番茄</td><td><span class="score high">94</span></td><td>85</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>26</td><td>红椒</td><td><span class="score high">94</span></td><td>85</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>27</td><td>鹰嘴豆</td><td><span class="score high">94</span></td><td>90</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>28</td><td>南瓜籽</td><td><span class="score high">94</span></td><td>90</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>29</td><td>钢切燕麦</td><td><span class="score high">94</span></td><td>85</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>30</td><td>黑豆</td><td><span class="score high">93</span></td><td>88</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>31</td><td>毛豆/枝豆</td><td><span class="score high">93</span></td><td>88</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>32</td><td>蛤蜊/牡蛎</td><td><span class="score high">93</span></td><td>88</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>33</td><td>梨</td><td><span class="score high">92</span></td><td>82</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>34</td><td>芸豆</td><td><span class="score high">92</span></td><td>86</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>35</td><td>天贝</td><td><span class="score high">92</span></td><td>85</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>36</td><td>贻贝</td><td><span class="score high">92</span></td><td>85</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>37</td><td>胡萝卜</td><td><span class="score high">91</span></td><td>80</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>38</td><td>南瓜</td><td><span class="score high">91</span></td><td>78</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>39</td><td>荞麦</td><td><span class="score high">91</span></td><td>80</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>40</td><td>低脂希腊酸奶(原味)</td><td><span class="score high">90</span></td><td>82</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>41</td><td>小米</td><td><span class="score high">89</span></td><td>75</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>42</td><td>鳕鱼</td><td><span class="score high">89</span></td><td>80</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>43</td><td>金枪鱼(新鲜)</td><td><span class="score high">89</span></td><td>78</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>44</td><td>扇贝</td><td><span class="score high">89</span></td><td>80</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>45</td><td>红薯</td><td><span class="score high">88</span></td><td>72</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>46</td><td>香蕉</td><td><span class="score high">87</span></td><td>70</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>47</td><td>虾</td><td><span class="score high">87</span></td><td>78</td><td>A=100</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>48</td><td>葡萄</td><td><span class="score high">86</span></td><td>68</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>49</td><td>芒果</td><td><span class="score high">85</span></td><td>65</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>50</td><td>豌豆</td><td><span class="score high">85</span></td><td>65</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>51</td><td>杏仁</td><td><span class="score high">85</span></td><td>92</td><td>B=75</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>52</td><td>纯麦丝(无糖全谷物)</td><td><span class="score high">85</span></td><td>65</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>53</td><td>龙虾</td><td><span class="score high">85</span></td><td>75</td><td>A=100</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>54</td><td>蛋白(蛋清)</td><td><span class="score high">85</span></td><td>70</td><td>A=100</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>55</td><td>菠萝</td><td><span class="score high">84</span></td><td>63</td><td>A=100</td><td>5星=100</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>56</td><td>开心果</td><td><span class="score high">84</span></td><td>88</td><td>B=75</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>57</td><td>豆腐</td><td><span class="score high">83</span></td><td>75</td><td>A=100</td><td>3.5星=70</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>58</td><td>罗非鱼</td><td><span class="score high">83</span></td><td>70</td><td>A=100</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>59</td><td>葵花籽</td><td><span class="score high">82</span></td><td>88</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>60</td><td>芝麻</td><td><span class="score high">81</span></td><td>87</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>61</td><td>花生</td><td><span class="score high">79</span></td><td>82</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td><span class="note-text">实为豆类</span></td></tr>
+<tr><td>62</td><td>沙丁鱼(罐装水浸)</td><td><span class="score high">78</span></td><td>88</td><td>B=75</td><td>3星=60</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>63</td><td>脱脂牛奶</td><td><span class="score high">78</span></td><td>75</td><td>B=75</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>64</td><td>西梅干</td><td><span class="score high">76</span></td><td>75</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>65</td><td>纯即食燕麦片(原味)</td><td><span class="score high">76</span></td><td>75</td><td>B=75</td><td>4星=80</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>66</td><td>低脂牛奶(1%)</td><td><span class="score high">76</span></td><td>70</td><td>B=75</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>67</td><td>无花果干</td><td><span class="score high">75</span></td><td>72</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>68</td><td>橄榄油</td><td><span class="score high">75</span></td><td>81</td><td>B=75</td><td>3星=60</td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>69</td><td>葡萄干</td><td><span class="score high">74</span></td><td>70</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>70</td><td>糙米</td><td><span class="score high">74</span></td><td>70</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>71</td><td>全脂酸奶(原味)</td><td><span class="score high">74</span></td><td>70</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>72</td><td>鳄梨油</td><td><span class="score high">74</span></td><td>80</td><td>B=75</td><td>3星=60</td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>73</td><td>空气爆米花(无油)</td><td><span class="score high">74</span></td><td>65</td><td>B=75</td><td>4.5星=90</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>74</td><td>水煮蛋/蒸蛋</td><td><span class="score high">72</span></td><td>65</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>75</td><td>腰果</td><td><span class="score high">71</span></td><td>85</td><td>C=50</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>76</td><td>菜籽油</td><td><span class="score high">71</span></td><td>72</td><td>B=75</td><td>3星=60</td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>77</td><td>火鸡胸肉</td><td><span class="score high">70</span></td><td>62</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>78</td><td>全蛋无油煎</td><td><span class="score high">70</span></td><td>62</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>79</td><td>全麦面包</td><td><span class="score mid">68</span></td><td>60</td><td>B=75</td><td>3.5星=70</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>80</td><td>鸡胸肉(烤去皮)</td><td><span class="score mid">68</span></td><td>57</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>81</td><td>玉米(整粒)</td><td><span class="score mid">67</span></td><td>55</td><td>B=75</td><td>4星=80</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>82</td><td>炒蛋</td><td><span class="score mid">67</span></td><td>58</td><td>B=75</td><td>3.5星=70</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>83</td><td>低脂水果酸奶</td><td><span class="score mid">66</span></td><td>87</td><td>C=50</td><td>2.5星=50</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td><span class="note-text">FC2采用,无糖更佳</span></td></tr>
+<tr><td>84</td><td>意面酱(无糖)</td><td><span class="score mid">66</span></td><td>60</td><td>B=75</td><td>3星=60</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>85</td><td>鸡腿肉(烤带皮)</td><td><span class="score mid">65</span></td><td>54</td><td>B=75</td><td>3.5星=70</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>86</td><td>鹿肉</td><td><span class="score mid">65</span></td><td>55</td><td>B=75</td><td>3.5星=70</td><td><span class="tag green">G1</span></td><td><span class="tag red">CH-</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>87</td><td>芥末</td><td><span class="score mid">65</span></td><td>55</td><td>B=75</td><td>3.5星=70</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>88</td><td>夏威夷果</td><td><span class="score mid">64</span></td><td>78</td><td>C=50</td><td>3星=60</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>89</td><td>鸭肉</td><td><span class="score mid">63</span></td><td>50</td><td>B=75</td><td>3.5星=70</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>90</td><td>豆奶/豆浆(无糖)</td><td><span class="score mid">63</span></td><td>55</td><td>B=75</td><td>3星=60</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>91</td><td>椰枣</td><td><span class="score mid">62</span></td><td>68</td><td>C=50</td><td>3.5星=70</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td><span class="note-text">高糖</span></td></tr>
+<tr><td>92</td><td>低脂乡村奶酪</td><td><span class="score mid">58</span></td><td>60</td><td>C=50</td><td>3.5星=70</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>93</td><td>大豆油</td><td><span class="score mid">58</span></td><td>68</td><td>C=50</td><td>2.5星=50</td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>94</td><td>100%纯果蔬汁</td><td><span class="score mid">57</span></td><td>66</td><td>C=50</td><td>2.5星=50</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>95</td><td>土豆(蒸/烤无油)</td><td><span class="score mid">57</span></td><td>58</td><td>C=50</td><td>3.5星=70</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>96</td><td>山药</td><td><span class="score mid">57</span></td><td>58</td><td>C=50</td><td>3.5星=70</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>97</td><td>精制意面/面条</td><td><span class="score mid">57</span></td><td>45</td><td>B=75</td><td>2.5星=50</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>98</td><td>全脂牛奶</td><td><span class="score mid">57</span></td><td>58</td><td>C=50</td><td>3.5星=70</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>99</td><td>葵花籽油</td><td><span class="score mid">56</span></td><td>65</td><td>C=50</td><td>2.5星=50</td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>100</td><td>泡菜/韩式泡菜</td><td><span class="score mid">53</span></td><td>56</td><td>C=50</td><td>2.5星=50</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>101</td><td>腌黄瓜</td><td><span class="score mid">52</span></td><td>55</td><td>C=50</td><td>2.5星=50</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>102</td><td>调味即食燕麦</td><td><span class="score mid">51</span></td><td>53</td><td>C=50</td><td>2.5星=50</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>103</td><td>中国酸菜(估算)</td><td><span class="score mid">50</span></td><td>50</td><td>C=50</td><td>2.5星=50</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>104</td><td>燕麦奶</td><td><span class="score mid">45</span></td><td>42</td><td>C=50</td><td>2星=40</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag gray">-</span></td><td></td></tr>
+<tr><td>105</td><td>牛肝</td><td><span class="score mid">43</span></td><td>55</td><td>D=25</td><td>2.5星=50</td><td><span class="tag green">G1</span></td><td><span class="tag red">CH-</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>106</td><td>瘦牛肉(烤)</td><td><span class="score mid">42</span></td><td>48</td><td>D=25</td><td>3星=60</td><td><span class="tag green">G1</span></td><td><span class="tag red">CH-</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>107</td><td>黑巧克力(>=70%)</td><td><span class="score mid">41</span></td><td>55</td><td>D=25</td><td>2星=40</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td><span class="note-text">FC2多酚,≤30g/d</span></td></tr>
+<tr><td>108</td><td>瘦猪肉</td><td><span class="score mid">38</span></td><td>44</td><td>D=25</td><td>2.5星=50</td><td><span class="tag green">G1</span></td><td><span class="tag red">CH-</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>109</td><td>白米饭</td><td><span class="score mid">34</span></td><td>23</td><td>C=50</td><td>1.5星=30</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>110</td><td>马苏里拉奶酪</td><td><span class="score mid">34</span></td><td>40</td><td>D=25</td><td>2星=40</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>111</td><td>咸鸭蛋(估算)</td><td><span class="score mid">32</span></td><td>40</td><td>D=25</td><td>1.5星=30</td><td><span class="tag yellow">G3</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>112</td><td>代糖饮料</td><td><span class="score mid">31</span></td><td>20</td><td>C=50</td><td>1星=20</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>113</td><td>巧克力牛奶</td><td><span class="score low">30</span></td><td>35</td><td>D=25</td><td>1.5星=30</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>114</td><td>植物肉替代品</td><td><span class="score low">30</span></td><td>35</td><td>D=25</td><td>1.5星=30</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>115</td><td>含糖果汁饮料</td><td><span class="score low">28</span></td><td>30</td><td>D=25</td><td>1.5星=30</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>116</td><td>榨菜/酱菜(估算)</td><td><span class="score low">28</span></td><td>30</td><td>D=25</td><td>1.5星=30</td><td><span class="tag yellow">G3</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>117</td><td>米粉</td><td><span class="score low">28</span></td><td>12</td><td>C=50</td><td>1星=20</td><td><span class="tag green">G1</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>118</td><td>Froot Loops甜麦片</td><td><span class="score low">28</span></td><td>29</td><td>D=25</td><td>1.5星=30</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>119</td><td>切达奶酪</td><td><span class="score low">28</span></td><td>30</td><td>D=25</td><td>1.5星=30</td><td><span class="tag yellow">G3</span></td><td><span class="tag blue">CH+</span></td><td><span class="tag yellow">GDQS中</span></td><td></td></tr>
+<tr><td>120</td><td>植物基奶酪替代品</td><td><span class="score low">26</span></td><td>30</td><td>D=25</td><td>1星=20</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag gray">-</span></td><td></td></tr>
+<tr><td>121</td><td>酱油</td><td><span class="score low">26</span></td><td>30</td><td>D=25</td><td>1星=20</td><td><span class="tag yellow">G3</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>122</td><td>番茄酱(Ketchup)</td><td><span class="score low">26</span></td><td>25</td><td>D=25</td><td>1.5星=30</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>123</td><td>含糖儿童麦片</td><td><span class="score low">24</span></td><td>25</td><td>D=25</td><td>1星=20</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>124</td><td>冻酸奶</td><td><span class="score low">23</span></td><td>23</td><td>D=25</td><td>1星=20</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>125</td><td>运动饮料</td><td><span class="score low">23</span></td><td>22</td><td>D=25</td><td>1星=20</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>126</td><td>微波黄油爆米花</td><td><span class="score low">22</span></td><td>20</td><td>D=25</td><td>1星=20</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>127</td><td>炸薯条</td><td><span class="score low">20</span></td><td>15</td><td>D=25</td><td>1星=20</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>128</td><td>椰子油</td><td><span class="score low">19</span></td><td>35</td><td>E=0</td><td>1星=20</td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>129</td><td>冰淇淋</td><td><span class="score low">19</span></td><td>18</td><td>D=25</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>130</td><td>白面包</td><td><span class="score low">16</span></td><td>6</td><td>D=25</td><td>1星=20</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>131</td><td>薯片</td><td><span class="score low">16</span></td><td>12</td><td>D=25</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>132</td><td>饼干</td><td><span class="score low">16</span></td><td>12</td><td>D=25</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>133</td><td>培根</td><td><span class="score low">15</span></td><td>26</td><td>E=0</td><td>1星=20</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>134</td><td>含糖汽水</td><td><span class="score low">14</span></td><td>28</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>135</td><td>棕榈油</td><td><span class="score low">11</span></td><td>20</td><td>E=0</td><td>0.5星=10</td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag green">GDQS健</span></td><td></td></tr>
+<tr><td>136</td><td>猪油</td><td><span class="score low">9</span></td><td>16</td><td>E=0</td><td>0.5星=10</td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>137</td><td>奶油奶酪</td><td><span class="score low">8</span></td><td>15</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>138</td><td>蛋糕</td><td><span class="score low">8</span></td><td>15</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>139</td><td>沙拉酱(奶油型)</td><td><span class="score low">8</span></td><td>15</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>140</td><td>奶油</td><td><span class="score low">7</span></td><td>12</td><td>E=0</td><td>0.5星=10</td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>141</td><td>蛋黄酱</td><td><span class="score low">7</span></td><td>12</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>142</td><td>中国腊肉/腊肠(估算)</td><td><span class="score low">6</span></td><td>10</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>143</td><td>火腿</td><td><span class="score low">5</span></td><td>6</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>144</td><td>热狗/香肠</td><td><span class="score low">5</span></td><td>6</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>145</td><td>萨拉米/腊肠</td><td><span class="score low">5</span></td><td>8</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>146</td><td>黄油</td><td><span class="score low">5</span></td><td>6</td><td>E=0</td><td>0.5星=10</td><td><span class="tag green">G2</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>147</td><td>方便面</td><td><span class="score low">2</span></td><td>1</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>148</td><td>可乐</td><td><span class="score low">2</span></td><td>1</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+<tr><td>149</td><td>巧克力焦糖糖果</td><td><span class="score low">2</span></td><td>1</td><td>E=0</td><td>0.5星=10</td><td><span class="tag red">G4</span></td><td><span class="tag red">CH-</span></td><td><span class="tag red">GDQS不健康</span></td><td></td></tr>
+</tbody></table></div></section>
+<footer>
+<p>综合加权食物评分系统 v2.0 | 149种食物 | 公式: (FC2×43 + NS×37 + HSR×20 + 50) // 100</p>
+<p>NS: A=100 B=75 C=50 D=25 E=0 | HSR: 5★=100 4.5★=90 4★=80 3.5★=70 3★=60 2.5★=50 2★=40 1.5★=30 1★=20 0.5★=10</p>
+<p>标签来源: NOVA (食品加工程度) | CHEI (中国健康饮食指数) | GDQS (全球膳食质量评分)</p>
+</footer>
+</div></body></html>
